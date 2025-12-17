@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>교회용 에니어그램 간단 테스트 (20문항)</title>
+
+    <meta name="description" content="교회 공동체 맥락에서 에니어그램 성향을 간단히 점검하는 20문항 테스트(참고용)" />
+    <meta property="og:title" content="교회용 에니어그램 간단 테스트" />
+    <meta property="og:description" content="20문항으로 간단히 점검해보는 에니어그램 성향(참고용)" />
+
+    <link rel="stylesheet" href="assets/css/app.css" />
+</head>
+<body>
+<header class="header">
+    <div class="header__inner">
+        <h1 class="header__title">교회용 에니어그램 간단 테스트</h1>
+        <p class="header__desc">
+            각 문항을 읽고 “지금의 나”에 가까운 정도로 선택해 주세요. (1~5)
+            <br/>※ 이 테스트는 참고용이며, 신앙의 성숙도/영성을 평가하지 않습니다.
+        </p>
+    </div>
+</header>
+
+<main class="container">
+    <section class="card">
+        <p class="note">
+            <b>응답척도</b> — 1: 전혀 그렇지 않다 / 2: 그렇지 않은 편이다 / 3: 보통이다 / 4: 그런 편이다 / 5: 매우 그렇다
+        </p>
+    </section>
+
+    <section id="questions"></section>
+
+    <section class="card">
+        <div class="actions">
+            <button class="btn btn--primary" id="btnCalc" type="button">결과 보기</button>
+            <button class="btn btn--ghost" id="btnReset" type="button">초기화</button>
+        </div>
+        <p class="note muted" id="msg"></p>
+    </section>
+
+    <section class="card result" id="result" style="display:none;">
+        <h2 class="result__title">결과</h2>
+        <div id="topline"></div>
+
+        <div class="hr"></div>
+
+        <div class="bars" id="bars"></div>
+
+        <div class="typebox" id="typeDetail"></div>
+
+        <div class="footer">
+            점수는 “유형 가능성”을 보여주며, 실제 성향은 삶의 맥락(가정/직장/교회/스트레스/회복)에 따라 달라질 수 있습니다.
+        </div>
+    </section>
+</main>
+
+<!-- JS (모듈형) -->
+<script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
