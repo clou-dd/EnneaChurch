@@ -36,11 +36,11 @@ export const QUESTIONS = [
         kind: "single",
         text: "교회 공동체에서 나를 가장 잘 설명하는 키워드 하나를 고른다면?",
         options: [
-            { label: "조화", type: 9 },
-            { label: "헌신", type: 2 },
-            { label: "성장", type: 3 },
-            { label: "보호", type: 8 },
-            { label: "자유", type: 7 }
+            { label: "조화", type: 9, desc: "분위기를 편안하게 만들고 갈등을 줄이는 쪽이 중요하게 느껴진다" },
+            { label: "헌신", type: 2, desc: "사람을 챙기고 섬기는 방향에 마음이 더 기울어진다" },
+            { label: "성장", type: 3, desc: "지금보다 더 잘해내고 발전하는 쪽에 동기부여가 된다" },
+            { label: "보호", type: 8, desc: "누군가를 지켜주고 책임지는 역할이 중요하게 느껴진다" },
+            { label: "자유", type: 7, desc: "가볍고 유연한 태도로 기쁨을 유지하는 것이 중요하게 느껴진다" }
         ]
     }
 ];

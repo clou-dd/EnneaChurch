@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>교회용 에니어그램 간단 테스트 (20문항)</title>
+    <title>Enneagram Test For Christians</title>
 
     <meta name="description" content="교회 공동체 맥락에서 에니어그램 성향을 간단히 점검하는 20문항 테스트(참고용)" />
     <meta property="og:title" content="교회용 에니어그램 간단 테스트" />
@@ -12,50 +12,60 @@
     <link rel="stylesheet" href="assets/css/app.css" />
 </head>
 <body>
-<header class="header">
-    <div class="header__inner">
-        <h1 class="header__title">교회용 에니어그램 간단 테스트</h1>
-        <p class="header__desc">
-            각 문항을 읽고 “지금의 나”에 가까운 정도로 선택해 주세요. (1~5)
-            <br/>※ 이 테스트는 참고용이며, 신앙의 성숙도/영성을 평가하지 않습니다.
-        </p>
+<header class="topbar">
+    <div class="topbar__inner">
+        <div class="brand">
+            <div class="brand__mark" aria-hidden="true">E</div>
+            <div class="brand__text">
+                <div class="brand__title">Enneagram Test</div>
+                <div class="brand__sub">For Christians V1.1</div>
+            </div>
+        </div>
+
+        <div class="topbar__right">
+            <button class="chip" id="btnStartOver" type="button" title="처음부터">처음부터</button>
+        </div>
+    </div>
+
+    <div class="progress">
+        <div class="progress__bar" id="progressBar" style="width:0%"></div>
     </div>
 </header>
 
-<main class="container">
-    <section class="card">
-        <p class="note">
-            <b>응답척도</b> — 1: 전혀 그렇지 않다 / 2: 그렇지 않은 편이다 / 3: 보통이다 / 4: 그런 편이다 / 5: 매우 그렇다
-        </p>
-    </section>
+<div class="appShell">
+    <main class="container">
+        <section class="stage" id="stage">
+            <!-- app.js -->
+        </section>
 
-    <section id="questions"></section>
+        <footer class="footnote">
+            ※ 본 테스트는 신앙의 성숙도/영성을 평가하지 않습니다.
+        </footer>
+    </main>
 
-    <section class="card">
-        <div class="actions">
-            <button class="btn btn--primary" id="btnCalc" type="button">결과 보기</button>
-            <button class="btn btn--ghost" id="btnReset" type="button">초기화</button>
+    <div class="pageBottom">
+        <div class="pageBottom__center">
+            © <span id="year"></span> ㄱㄱㅎ · All rights reserved
+            <a
+                href="https://github.com/clou-dd"
+                class="githubLink"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="GitHub"
+                title="GitHub"
+            >
+                <!-- GitHub SVG icon -->
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 .5C5.73.5.75 5.48.75 11.75c0 4.9 3.19 9.05 7.62 10.52.56.1.76-.24.76-.54v-1.9c-3.1.67-3.76-1.33-3.76-1.33-.51-1.3-1.24-1.65-1.24-1.65-1.01-.69.08-.68.08-.68 1.12.08 1.7 1.15 1.7 1.15.99 1.7 2.6 1.21 3.23.93.1-.72.39-1.21.7-1.49-2.47-.28-5.07-1.24-5.07-5.52 0-1.22.43-2.21 1.14-2.99-.12-.28-.49-1.4.11-2.92 0 0 .93-.3 3.05 1.14a10.6 10.6 0 0 1 2.78-.37c.94 0 1.89.13 2.78.37 2.12-1.44 3.05-1.14 3.05-1.14.6 1.52.23 2.64.11 2.92.71.78 1.14 1.77 1.14 2.99 0 4.29-2.6 5.23-5.08 5.51.4.35.75 1.04.75 2.1v3.11c0 .3.2.65.77.54a11.26 11.26 0 0 0 7.61-10.52C23.25 5.48 18.27.5 12 .5z"/>
+                </svg>
+            </a>
         </div>
-        <p class="note muted" id="msg"></p>
-    </section>
+    </div>
+</div>
+<script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+</script>
 
-    <section class="card result" id="result" style="display:none;">
-        <h2 class="result__title">결과</h2>
-        <div id="topline"></div>
-
-        <div class="hr"></div>
-
-        <div class="bars" id="bars"></div>
-
-        <div class="typebox" id="typeDetail"></div>
-
-        <div class="footer">
-            점수는 “유형 가능성”을 보여주며, 실제 성향은 삶의 맥락(가정/직장/교회/스트레스/회복)에 따라 달라질 수 있습니다.
-        </div>
-    </section>
-</main>
-
-<!-- JS (모듈형) -->
 <script type="module" src="assets/js/app.js"></script>
 </body>
 </html>
