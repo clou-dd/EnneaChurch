@@ -420,6 +420,16 @@ function resetAll() {
 
 $btnStartOver?.addEventListener("click", resetAll);
 
+// 모바일 높이 계산 대응
+function syncAppHeight() {
+    const h = window.visualViewport?.height ?? window.innerHeight;
+    document.documentElement.style.setProperty("--appH", `${h}px`);
+}
+syncAppHeight();
+window.addEventListener("resize", syncAppHeight);
+window.visualViewport?.addEventListener("resize", syncAppHeight);
+window.visualViewport?.addEventListener("scroll", syncAppHeight);
+
 // init
 setYear();
 render();
