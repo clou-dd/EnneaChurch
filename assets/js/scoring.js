@@ -1,41 +1,19 @@
+// scoring.js
 // 점수 계산 로직만 분리한 파일 (규칙을 바꾸기 쉬움)
-
-// ✅ 30문항 규칙(가공본)
-// - Likert: Q1~Q27 (각 응답 1~5 → (응답-1)로 0~4점)
-//   * Q1~Q9   → 유형 1~9
-//   * Q10~Q18 → 유형 1~9
-//   * Q19~Q27 → 유형 1~9
-// - Likert 특수: Q28 → 유형 1,6에 절반씩(0~2씩)
-// - single: Q29 → {2,3,7,8,9} 중 1개 선택(+4)
-// - single: Q30 → {1,4,5,6} 중 1개 선택(+4)
-
-export function mapLikertQuestionToType(qid) {
-	// 1~9 => 1~9
-	if (qid >= 1 && qid <= 9) return qid;
-	// 10~18 => 1~9
-	if (qid >= 10 && qid <= 18) return qid - 9;
-	// 19~27 => 1~9
-	if (qid >= 19 && qid <= 27) return qid - 18;
-	return null;
-}
-
-// single 문항에서 선택 가능한 타입(가정)
-export const SINGLE_Q29_TYPES = [2, 3, 7, 8, 9];
-export const SINGLE_Q30_TYPES = [1, 4, 5, 6];
 
 // 정규화용 최대점수(고정 기준)
 // Likert은 (응답-1)로 0~4점
-// Q28은 절반씩(0~2씩), Q29/Q30은 선택된 타입에 +4
+// Q28는 절반씩(0~2씩), Q29/Q30는 선택된 타입에 +4
 export const MAX_SCORE = {
-	1: (4 * 3) + 2 + 4, // Q1/Q10/Q19 + half(Q28) + Q30(선택 가능)
-	2: (4 * 3) + 4,     // Q2/Q11/Q20 + Q29(선택 가능)
-	3: (4 * 3) + 4,     // Q3/Q12/Q21 + Q29
-	4: (4 * 3) + 4,     // Q4/Q13/Q22 + Q30
-	5: (4 * 3) + 4,     // Q5/Q14/Q23 + Q30
-	6: (4 * 3) + 2 + 4, // Q6/Q15/Q24 + half(Q28) + Q30
-	7: (4 * 3) + 4,     // Q7/Q16/Q25 + Q29
-	8: (4 * 3) + 4,     // Q8/Q17/Q26 + Q29
-	9: (4 * 3) + 4      // Q9/Q18/Q27 + Q29
+	1: (4 * 3) + 2 + 4, // 1유형 Likert 3문항 + half(Q28) + Q30(선택 가능)
+	2: (4 * 3) + 4,     // 2유형 Likert 3문항 + Q29
+	3: (4 * 3) + 4,     // 3유형 Likert 3문항 + Q29
+	4: (4 * 3) + 4,     // 4유형 Likert 3문항 + Q30
+	5: (4 * 3) + 4,     // 5유형 Likert 3문항 + Q30
+	6: (4 * 3) + 2 + 4, // 6유형 Likert 3문항 + half(Q28) + Q30
+	7: (4 * 3) + 4,     // 7유형 Likert 3문항 + Q29
+	8: (4 * 3) + 4,     // 8유형 Likert 3문항 + Q29
+	9: (4 * 3) + 4      // 9유형 Likert 3문항 + Q29
 };
 
 export function getWing(mainType, percents) {
@@ -54,12 +32,14 @@ export function getWing(mainType, percents) {
 	return (percents[a] >= percents[b]) ? a : b;
 }
 
-/**
- * answers:
- *  - likert 문항: qid -> 1~5
- *  - Q29(single): 29 -> type(2/3/7/8/9)
- *  - Q30(single): 30 -> type(1/4/5/6)
- */
+function initRaw() {
+	return { 1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0 };
+}
+
+function isValidType(t) {
+	return Number.isInteger(t) && t >= 1 && t <= 9;
+}
+
 export function calcScores(questions, answers) {
 	const missing = [];
 	for (const q of questions) {
@@ -67,27 +47,35 @@ export function calcScores(questions, answers) {
 	}
 	if (missing.length) return { ok: false, missing };
 	
-	const raw = { 1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0 };
+	const raw = initRaw();
 	
 	for (const q of questions) {
 		if (q.kind === "likert") {
 			const v = Number(answers[q.id]); // 1~5
 			const pts = v - 1;               // 0~4
 			
-			if (q.id >= 1 && q.id <= 27) {
-				const t = mapLikertQuestionToType(q.id);
-				if (t != null) raw[t] += pts;
-			} else if (q.id === 28) {
-				raw[1] += pts * 0.5;
-				raw[6] += pts * 0.5;
+			// ✅ 일반 likert: q.type에 귀속
+			if (isValidType(q.type)) {
+				raw[q.type] += pts;
+				continue;
 			}
-		} else if (q.kind === "single" && q.id === 29) {
-			const t = Number(answers[q.id]);
-			// 안전장치(선택지가 틀려도 점수 오염 방지)
-			if (SINGLE_Q29_TYPES.includes(t)) raw[t] += 4;
-		} else if (q.kind === "single" && q.id === 30) {
-			const t = Number(answers[q.id]);
-			if (SINGLE_Q30_TYPES.includes(t)) raw[t] += 4;
+			
+			// ✅ 분기 likert: q.split.types에 ratio만큼 분배
+			if (q.split && Array.isArray(q.split.types) && typeof q.split.ratio === "number") {
+				const ratio = q.split.ratio;
+				for (const t of q.split.types) {
+					if (isValidType(t)) raw[t] += pts * ratio;
+				}
+			}
+			
+		} else if (q.kind === "single") {
+			const pickedType = Number(answers[q.id]);
+			
+			// ✅ options 기반 검증 후 +4
+			if (Array.isArray(q.options) && q.options.length) {
+				const allowed = q.options.some(o => Number(o.type) === pickedType);
+				if (allowed && isValidType(pickedType)) raw[pickedType] += 4;
+			}
 		}
 	}
 	
@@ -98,9 +86,11 @@ export function calcScores(questions, answers) {
 	
 	const sorted = Object.keys(percent)
 		.map(k => ({ type: Number(k), pct: percent[k], raw: raw[k] }))
-		.sort((a,b) => b.pct - a.pct);
+		.sort((a, b) => b.pct - a.pct);
 	
 	const main = sorted[0].type;
+	
+	// ✅ 날개는 무조건 양옆(인접)에서만 선택
 	const wing = getWing(main, percent);
 	
 	return { ok: true, raw, percent, sorted, main, wing };
