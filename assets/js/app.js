@@ -51,10 +51,6 @@ function scrollTopSmooth() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function setYear() {
-    if ($year) $year.textContent = String(new Date().getFullYear());
-}
-
 function showError(msg) {
     const err = document.getElementById("err");
     if (!err) return;
@@ -424,11 +420,10 @@ function syncAppHeight() {
     const h = window.visualViewport?.height ?? window.innerHeight;
     document.documentElement.style.setProperty("--appH", `${h}px`);
 }
+
+// init
 syncAppHeight();
 window.addEventListener("resize", syncAppHeight);
 window.visualViewport?.addEventListener("resize", syncAppHeight);
 window.visualViewport?.addEventListener("scroll", syncAppHeight);
-
-// init
-setYear();
 render();
