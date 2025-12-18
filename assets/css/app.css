@@ -1,520 +1,812 @@
+/* =========================================================
+   app.css
+   - Includes: topbar, stage, card, options, buttons, bottom nav
+   - Fixes: sticky topbar + fixed pageBottom overlap
+   ========================================================= */
+
+/* ---------- 0) Theme tokens ---------- */
 :root{
-    /* =========================
-       Layout / Radius
-       ========================= */
-    --radius: 18px;
-    --radius2: 14px;
+    --bg: #F2F2F7;
+    --surface: rgba(255,255,255,.78);
+    --surface-solid: #FFFFFF;
+    --border: rgba(60,60,67,.18);
 
-    /* =========================
-       Typography / Colors
-       ========================= */
-    --text: #0f172a;
-    --muted: #64748b;
+    --text: #111827;
+    --muted: rgba(60,60,67,.65);
+    --muted2: rgba(60,60,67,.45);
 
-    /* =========================
-       Card / Line / Shadow
-       ========================= */
-    --card: rgba(255,255,255,0.92);
-    --line: rgba(15,23,42,0.12);
+    --accent: #007AFF;
+    --accent-weak: rgba(0,122,255,.12);
 
-    --shadow-strong:
-            0 24px 60px rgba(2,6,23,0.18),
-            0 8px 18px rgba(2,6,23,0.10);
+    --danger: #FF3B30;
+    --success: #34C759;
 
-    --shadow-soft:
-            0 10px 26px rgba(2,6,23,0.14);
+    --radius-lg: 20px;
+    --radius-md: 14px;
 
-    /* =========================
-       Buttons
-       ========================= */
-    --btn: #0f172a;
-    --btnText: #ffffff;
+    --shadow: 0 10px 30px rgba(0,0,0,.08);
+    --shadow-soft: 0 6px 16px rgba(0,0,0,.07);
 
-    /* =========================
-       Chips (Topbar)
-       ========================= */
-    --chipBg: rgba(255,255,255,0.12);
-    --chipLine: rgba(255,255,255,0.22);
+    /* Layout heights */
+    --topbar-h: 56px;
+    --bottombar-h: 72px;
+    --page-pad: 16px;
 
-    /* =========================
-       Pastel Background (default)
-       (JS에서 랜덤으로 덮어쓸 수 있게 변수화)
-       ========================= */
-    --bg1: #f8fafc;
-    --bg2: #f1f5f9;
-    --accent1: rgba(186,230,253,0.35);
-    --accent2: rgba(221,214,254,0.28);
+    --container-max: 900px;
+
+    --muted: #374151;          /* 카드/흰배경용 보조 텍스트 */
+    --muted-soft: #6B7280;     /* 더 약한 설명/캡션용 */
+    --muted-faint: #9CA3AF;    /* 아주 약한 메타 정보 */
 }
 
+/* Dark mode (auto) */
+@media (prefers-color-scheme: dark){
+    :root{
+        --bg: #000000;
+        --surface: rgba(28,28,30,.72);
+        --surface-solid: #1C1C1E;
+        --border: rgba(84,84,88,.45);
+
+        --text: #F9FAFB;
+        --muted: rgba(235,235,245,.65);
+        --muted2: rgba(235,235,245,.45);
+
+        --shadow: 0 12px 34px rgba(0,0,0,.55);
+        --shadow-soft: 0 8px 18px rgba(0,0,0,.45);
+    }
+}
+
+/* ---------- 1) Reset / base ---------- */
 *{ box-sizing: border-box; }
-html, body{ height: 100%; }
+html, body{
+    height: 100%;
+    overflow: hidden; /* 전체 페이지는 스크롤 금지 */
+}
 body{
     margin: 0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+    background: var(--bg);
     color: var(--text);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    background:
-            radial-gradient(780px 420px at 15% 10%, var(--accent1), transparent 65%),
-            radial-gradient(780px 420px at 85% 15%, var(--accent2), transparent 65%),
-            linear-gradient(180deg, var(--bg1), var(--bg2));
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+img{ max-width: 100%; display: block; }
+a{ color: inherit; text-decoration: none; }
+button{ font: inherit; }
+:focus{ outline: none; }
+.brand__text {font-size: 12px}
+
+/* Selection */
+::selection{ background: rgba(0,122,255,.18); }
+
+/* ---------- 2) App layout (topbar + stage + pageBottom) ---------- */
+/* 앱 루트가 #app / .app / main 어떤 것이든 대응 */
+#app, .app, main{
+    min-height: 100%;
 }
 
-/* 밝은 파스텔에서 카드 경계가 묻히지 않게 아주 얇은 베일 */
-body::before{
-    content:"";
+/* start page: 카드 자체를 화면 중앙으로 */
+.backScreen{
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.startCard{ max-width: 560px; width: 100%; }
+
+/* 결과 카드 폭 제한 + 가운데 정렬 */
+.backScreen .card{
+    margin: 18px auto 0;  /* 위 여백만 주고 가운데 정렬 */
+    max-width: 680px;
+}
+
+/* ---------- 3) Topbar ---------- */
+/* 클래스/ID가 다양할 수 있어 최대한 넓게 커버 */
+.topbar, #topbar, header.topbar{
     position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background: rgba(15,23,42,0.06);
-    z-index: 0;
-}
-
-/* overlay 위로 */
-.topbar, .appShell, .pageBottom{
-    position: relative;
-    z-index: 1;
-}
-
-/* =========================
-   App Shell (스크롤 없이 한 화면)
-   - HTML: header(topbar) + div.appShell( main.container + pageBottom )
-   ========================= */
-.appShell{
-    flex: 1 1 auto;
-    min-height: 0;         /* 🔥 아래 요소 잘림 방지 */
-    display: flex;
-    flex-direction: column;
-}
-
-/* iOS 주소창 변화에도 안정적으로 한 화면 유지 */
-@supports (height: 100svh){
-    .appShell{ height: 100svh; }
-}
-
-/* =========================
-   Topbar
-   ========================= */
-.topbar{
-    flex: 0 0 auto;
-    position: sticky;
     top: 0;
-    z-index: 10;
+    left: 0;
+    right: 0;
+    height: var(--topbar-h);
+    display: flex;
+    align-items: center;
+    z-index: 1000;
 
-    backdrop-filter: blur(10px);
-    background: linear-gradient(180deg, rgba(15,23,42,0.65), rgba(15,23,42,0.35));
-    border-bottom: 1px solid rgba(255,255,255,0.10);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
 }
 
-.topbar__inner{
-    max-width: 920px;
+/* 내부 컨테이너 */
+.topbar__inner, .topbar .inner, #topbar .inner{
+    width: 100%;
+    max-width: var(--container-max);
     margin: 0 auto;
-    padding: 14px 16px;
+    padding: 0 var(--page-pad);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
 }
 
-.brand{
+/* 좌/중/우 슬롯이 있다면 */
+.topbar__left, .topbar__center, .topbar__right{
     display: flex;
     align-items: center;
     gap: 10px;
-    color: #fff;
+    min-width: 0;
 }
-.brand__mark{
-    width: 34px;
-    height: 34px;
-    border-radius: 12px;
-    display: grid;
-    place-items: center;
-    background: rgba(255,255,255,0.14);
-    border: 1px solid rgba(255,255,255,0.18);
+.topbar__center{
+    flex: 1;
+    justify-content: center;
+    text-align: center;
+}
+
+.topbar__title{
     font-weight: 900;
-}
-.brand__title{
-    font-weight: 900;
-    font-size: 14px;
-    letter-spacing: -0.2px;
-}
-.brand__sub{
-    font-size: 12px;
-    color: rgba(255,255,255,0.75);
-    margin-top: 2px;
-}
-
-.chip{
-    border-radius: 999px;
-    padding: 10px 12px;
-    border: 1px solid var(--chipLine);
-    background: var(--chipBg);
-    color: #fff;
-    font-weight: 800;
-    cursor: pointer;
-}
-
-.progress{
-    height: 4px;
-    background: rgba(255,255,255,0.10);
-}
-.progress__bar{
-    height: 4px;
-    width: 0%;
-    background: linear-gradient(90deg, rgba(34,197,94,1), rgba(56,189,248,1));
-    transition: width 220ms ease;
-}
-
-/* =========================
-   Main Container (남는 공간)
-   ========================= */
-.container{
-    flex: 1 1 auto;
-    min-height: 0;                 /* 중요: 내부 flex overflow 안정화 */
-    max-width: 920px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 14px 16px 8px;        /* 스크롤 생기지 않게 하단 padding 최소 */
-    display: flex;
-    flex-direction: column;
-}
-
-/* =========================
-   Stage (카드 영역) - 남는 공간만 차지
-   ========================= */
-.stage{
-    flex: 1 1 auto;
-    min-height: 0;                 /* 중요: 카드 내부 스크롤을 위해 필요 */
-    display: grid;
-    place-items: center;
-    padding: 8px 0;
-}
-
-/* =========================
-   Card (작은 화면에서는 카드 내부만 스크롤)
-   ========================= */
-.card{
-    width: min(720px, 100%);
-    background: var(--card);
-    border-radius: var(--radius);
-    border: 1px solid rgba(15,23,42,0.12);
-    box-shadow: var(--shadow-strong);
+    font-size: 15px;
+    letter-spacing: -.2px;
+    white-space: nowrap;
     overflow: hidden;
-
-    outline: 1px solid rgba(255,255,255,0.7);
-    outline-offset: -1px;
-
-    display: flex;
-    flex-direction: column;
-
-    height: auto;
-    max-height: calc(100svh - 170px);
+    text-overflow: ellipsis;
+    color: var(--text);
 }
-
-@supports not (height: 100svh){
-    .card{ max-height: calc(100vh - 170px); }
-}
-
-.card__header{
-    flex: 0 0 auto;
-    padding: 18px 18px 10px;
-    border-bottom: 1px solid rgba(15,23,42,0.08);
-    background: rgba(248,250,252,0.85);
-}
-
-.kicker{
+.topbar__sub{
     font-size: 12px;
     color: var(--muted);
+}
+
+/* ---------- 4) Page Bottom ---------- */
+.pageBottom, #pageBottom, .bottomBar, footer.pageBottom{
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--bottombar-h);
+    z-index: 1000;
+
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+/* 내부 정렬 */
+.pageBottom__inner, .pageBottom .inner, #pageBottom .inner{
+    height: 100%;
+    width: 100%;
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 10px var(--page-pad) 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* bottom 버튼 그룹 */
+.pageBottom .actions,
+.pageBottom__actions,
+.bottomActions{
+    width: 100%;
+    display: flex;
+    gap: 10px;
+}
+
+/* 안전하게 버튼이 가로로 꽉 차도록 */
+.pageBottom .btn,
+.pageBottom button{
+    flex: 1;
+}
+
+/* iOS 홈 인디케이터 영역 느낌(선택사항) */
+.pageBottom::after{
+    content:"";
+    position:absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 6px;
+    width: 120px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(60,60,67,.20);
+    pointer-events:none;
+}
+
+/* ---------- 5) Card ---------- */
+.card{
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    overflow: hidden;
+    margin: 18px auto 0;  /* 위 여백만 주고 가운데 정렬 */
+    max-width: 680px;
+}
+
+.card__header{ padding: 18px 18px 8px; }
+.card__body{ padding: 12px 18px 18px; }
+
+.kicker{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
     font-weight: 800;
+    letter-spacing: .2px;
+    color: var(--muted);
+    margin-bottom: 8px;
 }
 
 .title{
-    margin: 6px 0 0;
-    font-size: 18px;
+    margin: 0;
+    font-size: 20px;
     font-weight: 900;
-    letter-spacing: -0.2px;
-    line-height: 1.35;
-    word-break: keep-all;
-}
-
-.card__body{
-    flex: 1 1 auto;
-    min-height: 0;                 /* 중요: overflow 작동 */
-    overflow: auto;                /* 카드 내부 스크롤 */
-    padding: 16px 18px 18px;
-    -webkit-overflow-scrolling: touch;
+    letter-spacing: -.3px;
 }
 
 .hint{
     margin: 0 0 12px;
-    font-size: 12px;
     color: var(--muted);
-    line-height: 1.5;
+    font-size: 13px;
 }
 
-/* =========================
-   Likert
-   ========================= */
-.scale{
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 10px;
+.mainDesc{
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.65;
+}
+.mainDesc strong{
+    color: var(--text);
+    font-weight: 900;
 }
 
-.opt{
-    border: 1px solid #cbd5e1;
-    border-radius: var(--radius2);
-    padding: 12px 10px;
-    text-align: center;
+/* ---------- 6) Buttons ---------- */
+.btn {
+    appearance: none;
+    -webkit-appearance: none;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    height: 44px;
+    padding: 0 16px;
+
+    border-radius: 14px;
+    border: 1px solid transparent;
+
+    font-weight: 900;
+    font-size: 15px;
+    letter-spacing: -0.2px;
+
     cursor: pointer;
     user-select: none;
-    background: #fff;
-    transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
-}
-.opt:hover{
-    transform: translateY(-1px);
-    box-shadow: 0 8px 22px rgba(2,6,23,0.10);
-}
-.opt.selected{
-    border-color: #0f172a;
-    box-shadow: var(--shadow-soft);
-}
-.opt__num{
-    font-weight: 900;
-    font-size: 16px;
-    line-height: 1.1;
-}
-.opt__lab{
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 6px;
-    line-height: 1.25;
+
+    transition: transform .08s ease, filter .2s ease, background .2s ease, box-shadow .2s ease;
+    box-shadow: none;
 }
 
-/* =========================
-   Single options (일반)
-   ========================= */
+/* 눌림(Press) */
+.btn:active{
+    transform: scale(0.985);
+    filter: brightness(0.98);
+}
+
+/* Primary */
+.btn--primary{
+    background: var(--accent);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 10px 20px rgba(0,122,255,.18);
+}
+
+/* Ghost(Secondary) */
+.btn--ghost{
+    background: rgba(0,122,255,.10);
+    color: rgba(0,122,255,.95);
+    border-color: rgba(0,122,255,.18);
+}
+
+/* Disabled */
+.btn[disabled]{
+    opacity: .5;
+    cursor: not-allowed;
+    transform: none;
+    filter: none;
+    box-shadow: none;
+}
+
+/* Large (시작하기) */
+.btn--lg{
+    height: 48px;
+    padding: 0 18px;
+    border-radius: 16px;
+    font-size: 16px;
+    min-width: 190px;
+}
+
+/* actions */
+.actions{
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 14px;
+}
+.actions--center{ justify-content: center; }
+
+/* ---------- 7) Inputs (if any) ---------- */
+input[type="text"], input[type="number"], textarea, select{
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,.85);
+    padding: 12px 12px;
+    font: inherit;
+    transition: box-shadow .2s ease, border-color .2s ease;
+}
+@media (prefers-color-scheme: dark){
+    input[type="text"], input[type="number"], textarea, select{
+        background: rgba(44,44,46,.85);
+        color: var(--text);
+    }
+}
+input:focus, textarea:focus, select:focus{
+    border-color: rgba(0,122,255,.55);
+    box-shadow: 0 0 0 4px rgba(0,122,255,.12);
+}
+
+/* ===== 8) Likert: line + 5 circles + labels under ===== */
+:root{
+    --dotSize: 18px;
+    --dotBorder: 2px;
+    --dotRowH: 34px;          /* 동그라미가 들어있는 상단 행 높이 */
+    --lineH: 2px;
+}
+
+/* likert 그리드 */
+.likert{
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+
+    padding: 14px 6px 6px;
+    margin-top: 10px;
+}
+
+/* 선 위치 = dotRowH의 정확한 중앙 */
+.likertLine{
+    position: absolute;
+    left: 12px;
+    right: 12px;
+
+    top: calc((var(--dotRowH) / 2) + 14px); /* 14px = .likert padding-top */
+    transform: translateY(calc(var(--lineH) / -2));
+
+    height: var(--lineH);
+    background: rgba(60,60,67,.18);
+    border-radius: 999px;
+    pointer-events: none;
+}
+
+/* 아이템: 상단 행 높이를 변수로 고정 */
+.likertItem{
+    position: relative;
+    display: grid;
+    grid-template-rows: var(--dotRowH) auto;
+    place-items: center;
+    gap: 8px;
+
+    padding: 0 4px 10px; /* padding-top은 0으로 (선 계산 안정) */
+    border-radius: 14px;
+
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.likertItem:active{
+    transform: scale(0.99);
+}
+
+/* 실제 radio는 숨김(접근성 유지) */
+.likertItem input{
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* dot */
+.likertDot{
+    width: var(--dotSize);
+    height: var(--dotSize);
+    border-radius: 999px;
+    background: rgba(255,255,255,.98);
+    border: var(--dotBorder) solid rgba(60,60,67,.35);
+    box-shadow: 0 1px 0 rgba(0,0,0,.04);
+}
+
+/* 라벨은 줄바꿈 허용 (카드 밖으로 안 나가게) */
+.likertLabel{
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--muted-soft, #6B7280);
+    text-align: center;
+    line-height: 1.25;
+
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+/* 선택 상태 */
+.likertItem.selected{
+    background: rgba(0,122,255,.08);
+}
+.likertItem.selected .likertDot{
+    border-color: rgba(0,122,255,.75);
+    background: rgba(0,122,255,.12);
+}
+.likertItem.selected .likertDot::after{
+    content:"";
+    display: block;
+    width: 8px;
+    height: 8px;
+    margin: 3px auto 0;
+    border-radius: 999px;
+    background: var(--accent, #007AFF);
+}
+
+/* 키보드 포커스(탭 이동)도 보기 좋게 */
+.likertItem:has(input:focus-visible){
+    box-shadow: 0 0 0 4px rgba(0,122,255,.18);
+}
+
+/* 모바일에서 라벨이 너무 길면 조금 더 조밀하게 */
+@media (max-width: 420px){
+    .likert{ gap: 8px; }
+    .likertLabel{ font-size: 11px; }
+}
+
+/* ---------- 9) Q20 radio list ---------- */
+.radioList{
+    display: grid;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.radioItem{
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 14px;
+
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,.15);
+
+    cursor: pointer;
+    transition: background .2s ease, border-color .2s ease, transform .08s ease;
+}
+
+.radioItem:active{ transform: scale(0.997); }
+
+.radioBullet{
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 2px solid rgba(60,60,67,.35);
+    margin-top: 2px;
+    flex: 0 0 auto;
+    position: relative;
+}
+
+.radioText{
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.radioTitle{
+    font-weight: 900;
+    font-size: 14px;
+}
+
+.radioDesc{
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+    word-break: keep-all;
+}
+
+.radioItem.selected{
+    border-color: rgba(0,122,255,.35);
+    background: var(--accent-weak);
+}
+.radioItem.selected .radioBullet{
+    border-color: rgba(0,122,255,.7);
+}
+.radioItem.selected .radioBullet::after{
+    content:"";
+    position:absolute;
+    inset: 3px;
+    border-radius: 999px;
+    background: var(--accent);
+}
+
+/* ---------- 10) Single options grid ---------- */
 .singleGrid{
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
+    margin-top: 10px;
 }
+
 .singleOpt{
-    padding: 14px 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: var(--radius2);
+    padding: 14px 14px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,.15);
+
     cursor: pointer;
-    background: #fff;
-    transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+    transition: background .2s ease, border-color .2s ease, transform .08s ease;
 }
-.singleOpt:hover{
-    transform: translateY(-1px);
-    box-shadow: 0 8px 22px rgba(2,6,23,0.10);
-}
-.singleOpt.selected{
-    border-color: #0f172a;
-    box-shadow: var(--shadow-soft);
-}
+.singleOpt:active{ transform: scale(0.997); }
+
 .singleOpt__top{
     font-weight: 900;
     font-size: 14px;
 }
 .singleOpt__sub{
-    margin-top: 4px;
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.4;
-}
-
-/* =========================
-   Q20 Radio list (긴 문장)
-   ========================= */
-.radioList{
-    display: grid;
-    gap: 12px;
-}
-
-.radioItem{
-    display: flex;
-    gap: 12px;
-    padding: 14px 16px;
-    border: 1px solid #cbd5e1;
-    border-radius: var(--radius2);
-    cursor: pointer;
-    background: #fff;
-    transition: box-shadow 120ms ease, border-color 120ms ease;
-}
-.radioItem:hover{
-    box-shadow: 0 8px 22px rgba(2,6,23,0.10);
-}
-.radioItem.selected{
-    border-color: #0f172a;
-    box-shadow: var(--shadow-soft);
-}
-
-.radioBullet{
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 2px solid #64748b;
-    margin-top: 2px;
-    flex-shrink: 0;
-}
-.radioItem.selected .radioBullet{
-    border-color: #0f172a;
-    background: #0f172a;
-}
-
-.radioText{
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.radioTitle{
-    font-weight: 900;
-    font-size: 14px;
-    line-height: 1.25;
-}
-.radioDesc{
+    margin-top: 6px;
     font-size: 13px;
-    color: #475569;
-    line-height: 1.5;
+    color: var(--muted);
+    line-height: 1.45;
     word-break: keep-all;
 }
 
-/* =========================
-   Actions / Buttons
-   ========================= */
-.actions{
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    margin-top: 16px;
+.singleOpt.selected{
+    border-color: rgba(0,122,255,.35);
+    background: var(--accent-weak);
 }
 
-.actions--center {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 24px;
-}
-
-.actions--center .btn {
-    min-width: 160px;
-}
-
-.btn{
-    border: 0;
-    border-radius: var(--radius2);
-    padding: 12px 14px;
-    font-weight: 900;
-    cursor: pointer;
-}
-
-.btn--primary{
-    background: var(--btn);
-    color: var(--btnText);
-}
-
-.btn--ghost{
-    background: #fff;
-    border: 1px solid #cbd5e1;
-    color: var(--btn);
-}
-
-.btn:disabled{
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* =========================
-   Result UI
-   ========================= */
+/* ---------- 11) Result badges / bars (if present) ---------- */
 .badgeRow{
     display: flex;
-    gap: 8px;
     flex-wrap: wrap;
+    gap: 8px;
     margin-top: 10px;
 }
+
 .badge{
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 10px;
     border-radius: 999px;
-    border: 1px solid #cbd5e1;
-    background: #fff;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,.15);
     font-size: 12px;
-    font-weight: 800;
-    color: #0f172a;
-}
-.badge--accent{
-    border-color: rgba(34,197,94,0.55);
-    background: rgba(34,197,94,0.10);
+    font-weight: 900;
+    color: var(--muted);
 }
 
-.hr{
-    height: 1px;
-    background: var(--line);
-    margin: 14px 0;
+.badge--accent{
+    border-color: rgba(0,122,255,.25);
+    background: rgba(0,122,255,.12);
+    color: rgba(0,122,255,.95);
 }
 
 .bars{
     display: grid;
     gap: 10px;
-}
-.bar-row{
-    display: grid;
-    grid-template-columns: 42px 1fr 58px;
-    gap: 10px;
-    align-items: center;
+    margin-top: 12px;
 }
 .bar{
-    height: 10px;
-    background: #eef2f7;
-    border-radius: 999px;
-    overflow: hidden;
-    border: 1px solid var(--line);
+    display: grid;
+    gap: 6px;
 }
-.bar > div{
+.bar__top{
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 900;
+}
+.bar__track{
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(60,60,67,.12);
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+.bar__fill{
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, rgba(34,197,94,1), rgba(56,189,248,1));
+    background: var(--accent);
+    border-radius: 999px;
+    transition: width .35s ease;
 }
 
-.typebox{
-    margin-top: 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius2);
-    padding: 12px;
-    background: #fff;
+/* ---------- 12) Progress (if present) ---------- */
+.progress{
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(60,60,67,.12);
+    overflow: hidden;
+    border: 1px solid var(--border);
 }
-.typebox h3{
-    margin: 0 0 8px;
-    font-size: 16px;
-    letter-spacing: -0.2px;
-    line-height: 1.35;
-}
-.typebox ul{
-    margin: 8px 0 0 18px;
-    padding: 0;
-}
-.typebox li{
-    margin: 6px 0;
-    line-height: 1.5;
-    color: #0f172a;
+.progress__bar{
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width .25s ease;
 }
 
+/* ---------- 13) Error / Notice ---------- */
 .error{
     margin-top: 10px;
-    font-size: 12px;
-    color: #b91c1c;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,59,48,.25);
+    background: rgba(255,59,48,.10);
+    color: rgba(255,59,48,.95);
+    font-weight: 900;
+    display: none;
+}
+.error.is-show{ display: block; }
+
+/* ---------- 14) Animation ---------- */
+.fadeIn{
+    animation: fadeInUp .22s ease both;
+}
+@keyframes fadeInUp{
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 15) Responsive tweaks ---------- */
+@media (max-width: 420px){
+    :root{
+        --page-pad: 14px;
+        --topbar-h: 54px;
+        --bottombar-h: 74px;
+    }
+    .title{ font-size: 18px; }
+    .opt__lab{ font-size: 11px; }
+}
+
+/* ---------- 16) Safe-area ----------- */
+.pageBottom{
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+
+    height: var(--bottombar-h, 72px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.pageBottom__center{
+    max-width: var(--container-max, 900px);
+    padding: 0 var(--page-pad, 16px);
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+
+    text-align: center;
+    line-height: 1.2;
+    color: var(--muted);
+    font-size: 13px;
     font-weight: 800;
 }
 
-/* =========================
-   Footnote (container 내부 하단)
-   ========================= */
+/* GitHub 링크: 아이콘 버튼처럼 */
+.pageBottom .githubLink{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,.55);
+    box-shadow: var(--shadow-soft);
+}
+
+/* svg: 크기 + 색(검정 문제 해결) */
+.pageBottom .githubLink svg{
+    width: 18px;
+    height: 18px;
+    display: block;
+
+    fill: rgba(60,60,67,.70);     /* iOS 그레이 */
+}
+
+/* hover 시 강조 */
+.pageBottom .githubLink:hover svg{
+    fill: var(--accent);
+}
+
+/* Safe-area (홈 인디케이터) */
+@supports (padding: env(safe-area-inset-bottom)){
+    .pageBottom{
+        padding-bottom: env(safe-area-inset-bottom);
+        height: calc(var(--bottombar-h, 72px) + env(safe-area-inset-bottom));
+    }
+}
+
+/* ---------- 16) Stage ----------- */
+.appShell .container{
+    display: block;
+}
+
+/* 상단바가 fixed/sticky일 때 콘텐츠가 안 가리도록 stage에 패딩을 확보 */
+#stage, .stage{
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    padding:
+            calc(var(--topbar-h, 56px) + 8px)
+            var(--page-pad, 16px)
+            calc(var(--bottombar-h, 72px) + 8px);
+}
+
+@supports (padding: env(safe-area-inset-bottom)){
+    .stage, #stage{
+        padding-bottom: calc(var(--bottombar-h, 72px) + 18px + env(safe-area-inset-bottom));
+    }
+}
+
+/* appShell 기본 레이아웃 */
+.appShell{
+    min-height: 100vh;
+    background: var(--bg);
+}
+
+/* appShell 안의 container는 항상 가운데 + 최대폭 */
+.appShell .container{
+    width: 100%;
+    max-width: var(--container-max, 900px);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--page-pad, 16px);
+    padding-right: var(--page-pad, 16px);
+}
+
+/* appShell의 본문 영역(=stage 역할) */
+.appShell .stage,
+.appShell #stage{
+    max-width: var(--container-max, 900px);
+    margin: 0 auto;
+}
+
+@supports (padding: env(safe-area-inset-bottom)){
+    .appShell .stage,
+    .appShell #stage{
+        padding-bottom: calc(var(--bottombar-h, 72px) + 18px + env(safe-area-inset-bottom));
+    }
+}
+
 .footnote{
     flex: 0 0 auto;
     margin: 8px 0 0;
@@ -526,88 +818,94 @@ body::before{
     word-break: keep-all;
 }
 
-/* =========================
-   Page bottom (Topbar와 동일 톤)
-   - appShell의 마지막 줄(항상 보임)
-   ========================= */
-.pageBottom{
-    flex: 0 0 auto;
+/* ===== Topbar chip button ===== */
+.chip{
+    appearance: none;
+    -webkit-appearance: none;
 
-    backdrop-filter: blur(10px);
-    background: linear-gradient(180deg, rgba(15,23,42,0.65), rgba(15,23,42,0.35));
-    border-top: 1px solid rgba(255,255,255,0.10);
-
-    padding: 12px 12px calc(10px + env(safe-area-inset-bottom));
-}
-
-.pageBottom__center{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-
-    text-align: center;
-    font-size: 11.5px;
-    line-height: 1;          /* baseline 이슈 제거 */
-    letter-spacing: 0.2px;
-    color: rgba(255,255,255,0.75);
-}
-
-/* GitHub tiny icon */
-.githubLink{
     display: inline-flex;
     align-items: center;
-    line-height: 0;          /* baseline 이슈 제거 */
-    opacity: 0.65;
-    transition: opacity 120ms ease;
-}
-.githubLink:hover{ opacity: 0.95; }
+    justify-content: center;
 
-.githubLink svg{
-    display: block;
-    width: 14px;
-    height: 14px;
-    fill: rgba(255,255,255,0.75);
-}
+    height: 32px;                 /* topbar에 어울리는 높이 */
+    padding: 0 12px;
 
-/* =========================
-   Transitions
-   ========================= */
-.fadeIn{
-    animation: fadeIn 160ms ease both;
-}
-@keyframes fadeIn{
-    from{ opacity:0; transform: translateY(6px); }
-    to{ opacity:1; transform: translateY(0); }
+    border-radius: 999px;         /* pill */
+    border: 1px solid rgba(0,122,255,.28);
+
+    background: rgba(0,122,255,.10);
+    color: rgba(0,122,255,.95);
+
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: -0.1px;
+
+    cursor: pointer;
+    user-select: none;
+
+    transition: background .2s ease, transform .08s ease, box-shadow .2s ease;
 }
 
-/* =========================
-   Mobile tweaks
-   - 작은 화면에서 카드 내부 스크롤에 최적
-   ========================= */
-@media (max-width: 520px){
-    .topbar__inner{ padding: 12px 12px; }
-    .container{ padding: 12px 12px 6px; }
-    .stage{ padding: 6px 0; }
+/* hover */
+.chip:hover{
+    background: rgba(0,122,255,.16);
+}
 
-    .card{ border-radius: 16px; }
-    .card__header{ padding: 16px 14px 10px; }
-    .card__body{ padding: 14px 14px 16px; }
+/* press */
+.chip:active{
+    transform: scale(0.96);
+}
 
-    .title{ font-size: 17px; line-height: 1.45; }
-    .hint{ font-size: 13px; line-height: 1.55; margin-bottom: 14px; }
-    .mainDesc{ font-size: 17px; line-height: 1.55; margin-bottom: 14px; }
+/* disabled (있다면) */
+.chip[disabled]{
+    opacity: .45;
+    cursor: not-allowed;
+    transform: none;
+}
 
-    .scale{ grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .singleGrid{ grid-template-columns: 1fr; }
+/* 클릭/터치 시 생기는 기본 파란 포커스 박스 제거 (접근성 유지) */
+button:focus{ outline: none; }
+button:focus:not(:focus-visible){ outline: none; }
 
-    .radioItem{ padding: 14px 14px; }
-    .radioTitle{ font-size: 15px; }
-    .radioDesc{ font-size: 13.5px; line-height: 1.6; }
+/* 키보드(Tab)로 포커스 이동할 때만 iOS스러운 링 표시 */
+button:focus-visible{
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(0,122,255,.18);
+}
 
-    .btn{ padding: 13px 14px; min-height: 46px; }
+/* 기본 outline 제거 */
+input[type="radio"]:focus,
+input[type="checkbox"]:focus{
+    outline: none;
+}
 
-    .pageBottom{ padding-top: 10px; }
-    .pageBottom__center{ font-size: 11px; }
-    .githubLink svg{ width: 13px; height: 13px; }
+/* 마우스/터치 포커스일 때 */
+input[type="radio"]:focus:not(:focus-visible),
+input[type="checkbox"]:focus:not(:focus-visible){
+    outline: none;
+    box-shadow: none;
+}
+
+/* 키보드(Tab) 접근성용 포커스는 label에 표시 */
+input[type="radio"]:focus-visible + *,
+input[type="checkbox"]:focus-visible + *{
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0,122,255,.18);
+    border-radius: 16px;
+}
+
+/* 링크도 동일하게(깃허브 아이콘 등) */
+a:focus{ outline: none; }
+a:focus:not(:focus-visible){ outline: none; }
+a:focus-visible{
+    box-shadow: 0 0 0 4px rgba(0,122,255,.18);
+    border-radius: 12px;
+}
+
+/* 모바일 탭 하이라이트 제거 */
+button, a,
+label, div,
+input[type="radio"],
+input[type="checkbox"]{
+    -webkit-tap-highlight-color: transparent;
 }

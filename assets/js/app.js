@@ -5,55 +5,10 @@ import { calcScores } from "./scoring.js";
 const $stage = document.getElementById("stage");
 const $progressBar = document.getElementById("progressBar");
 const $btnStartOver = document.getElementById("btnStartOver");
+const $year = document.getElementById("year");
 
 const answers = {}; // qid -> likert(1~5) or single(type)
-let step = -1;       // 0..(QUESTIONS.length)  (QUESTIONS.length는 결과 페이지)
-
-// -----------------------------
-// Pastel background themes
-// -----------------------------
-const PASTEL_THEMES = [
-    {
-        bg1: "#f8fafc",
-        bg2: "#f1f5f9",
-        accent1: "rgba(186,230,253,0.35)", // sky
-        accent2: "rgba(221,214,254,0.28)"  // violet
-    },
-    {
-        bg1: "#fff7ed",
-        bg2: "#ffedd5",
-        accent1: "rgba(254,215,170,0.35)", // peach
-        accent2: "rgba(251,207,232,0.28)"  // pink
-    },
-    {
-        bg1: "#f0fdf4",
-        bg2: "#dcfce7",
-        accent1: "rgba(187,247,208,0.35)", // mint
-        accent2: "rgba(204,251,241,0.28)"  // teal
-    },
-    {
-        bg1: "#f5f3ff",
-        bg2: "#ede9fe",
-        accent1: "rgba(216,180,254,0.35)", // lavender
-        accent2: "rgba(199,210,254,0.28)"  // indigo
-    },
-    {
-        bg1: "#fff1f2",
-        bg2: "#ffe4e6",
-        accent1: "rgba(254,205,211,0.35)", // rose
-        accent2: "rgba(251,182,206,0.28)"  // soft pink
-    }
-];
-
-// 랜덤 선택
-const pastel = PASTEL_THEMES[Math.floor(Math.random() * PASTEL_THEMES.length)];
-
-// CSS 변수 적용
-const root = document.documentElement;
-root.style.setProperty("--bg1", pastel.bg1);
-root.style.setProperty("--bg2", pastel.bg2);
-root.style.setProperty("--accent1", pastel.accent1);
-root.style.setProperty("--accent2", pastel.accent2);
+let step = -1; // -1: start, 0..QUESTIONS.length-1: questions, QUESTIONS.length: result
 
 // ---------------- utils ----------------
 function escapeHtml(str) {
@@ -65,64 +20,102 @@ function escapeHtml(str) {
         .replaceAll("'", "&#039;");
 }
 
-function setProgress() {
-	const total = QUESTIONS.length;
-	const current = Math.max(0, step);
-    const pct = Math.round((step / (total - 1)) * 100);
-    $progressBar.style.width = `${pct}%`;
+function clamp(n, min, max) {
+    return Math.max(min, Math.min(max, n));
 }
 
-function typeLabel(t) {
-    return `${t}유형`;
+function setProgress() {
+    if (!$progressBar) return;
+
+    const total = QUESTIONS.length;
+
+    // start page
+    if (step < 0) {
+        $progressBar.style.width = "0%";
+        return;
+    }
+
+    // result page or beyond
+    if (step >= total) {
+        $progressBar.style.width = "100%";
+        return;
+    }
+
+    // question pages: 0..total-1 -> 0..100
+    const denom = Math.max(1, total - 1);
+    const pct = Math.round((step / denom) * 100);
+    $progressBar.style.width = `${clamp(pct, 0, 100)}%`;
 }
 
 function scrollTopSmooth() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function setYear() {
+    if ($year) $year.textContent = String(new Date().getFullYear());
+}
+
+function showError(msg) {
+    const err = document.getElementById("err");
+    if (!err) return;
+    err.textContent = msg;
+    err.classList.add("is-show");
+}
+
+function hideError() {
+    const err = document.getElementById("err");
+    if (!err) return;
+    err.textContent = "";
+    err.classList.remove("is-show");
+}
+
 // ---------------- render ----------------
 function render() {
+    // start
+    if (step < 0) {
+        setProgress();
+        renderStartPage();
+        return;
+    }
 
-	// 초기 시작화면
-	if (step < 0) {
-		renderStartPage();
-		return;
-	}
-	
-    setProgress();
-
-    // 결과 페이지
+    // result
     if (step === QUESTIONS.length) {
+        setProgress();
         renderResultPage();
         return;
     }
+
+    // question page
+    setProgress();
 
     const q = QUESTIONS[step];
     if (!q) return;
 
     const currentIndex = step + 1;
     const total = QUESTIONS.length;
-
     const selected = answers[q.id];
 
     const html = `
-    <div class="card fadeIn">
-      <div class="card__header">
-        <div class="kicker">${currentIndex} / ${total}</div>
-        <h2 class="title">Q${q.id}. ${escapeHtml(q.text)}</h2>
-      </div>
-      <div class="card__body">
-        <p class="hint">선택한 뒤 “다음”을 눌러 진행합니다.</p>
-
-        ${q.kind === "likert" ? renderLikertBlock(q, selected) : renderSingleBlock(q, selected)}
-
-        <div class="error" id="err" style="display:none;"></div>
-
-        <div class="actions">
-          <button class="btn btn--ghost" id="btnPrev" type="button" ${step === 0 ? "disabled" : ""}>이전</button>
-          <button class="btn btn--primary" id="btnNext" type="button">다음</button>
+    <div class="backScreen">
+        <div class="card fadeIn">
+          <div class="card__header">
+            <div class="kicker">${currentIndex} / ${total}</div>
+            <h2 class="title">Q${q.id}. ${escapeHtml(q.text)}</h2>
+          </div>
+    
+          <div class="card__body">
+            <p class="hint">선택한 뒤 “다음”을 눌러 진행합니다.</p>
+    
+            ${q.kind === "likert" ? renderLikertBlock(q, selected) : renderSingleBlock(q, selected)}
+    
+            <div class="error" id="err"></div>
+    
+            <div class="actions">
+              <button class="btn btn--ghost" id="btnPrev" type="button" ${step === 0 ? "disabled" : ""}>이전</button>
+              <button class="btn btn--primary" id="btnNext" type="button">다음</button>
+            </div>
+          </div>
         </div>
-      </div>
     </div>
   `;
 
@@ -133,89 +126,99 @@ function render() {
 }
 
 function renderStartPage() {
-	const total = QUESTIONS.length;
-	
-	const html = `
-    <div class="card fadeIn">
-      <div class="card__header">
-        <div class="kicker">에니어그램 테스트</div>
-        <h2 class="title">총 ${total}문항</h2>
-      </div>
+    const total = QUESTIONS.length;
 
-      <div class="card__body">
-        <p class="mainDesc">
-			본 테스트 결과는 개인의 성향을 단정하거나<br/>
-			신앙의 성숙도, 영성의 깊이를 평가하지 않습니다.<br/>
-			<br/>
-			에니어그램은 자신과 타인을 이해하기 위한 참고 도구이며,<br/>
-			결과는 <strong>절대적인 기준이나 진단</strong> 사용하지 않으시길 부탁드립니다.
-        </p>
+    const html = `
+    <div class="backScreen">
+      <div class="card fadeIn startCard">
+        <div class="card__header">
+          <div class="kicker">에니어그램 테스트</div>
+          <h2 class="title">총 ${total}문항</h2>
+        </div>
 
-        <div class="actions actions--center">
-		  <button class="btn btn--primary btn--lg" id="btnStart" type="button">시작하기</button>
-		</div>
+        <div class="card__body">
+          <p class="mainDesc">
+            본 테스트 결과는 개인의 성향을 단정하거나<br/>
+            신앙의 성숙도, 영성의 깊이를 평가하지 않습니다.<br/>
+            <br/>
+            에니어그램은 자신과 타인을 이해하기 위한 참고 도구이며,<br/>
+            결과는 <strong>절대적인 기준이나 진단</strong> 사용하지 않으시길 부탁드립니다.
+          </p>
+
+          <div class="actions actions--center">
+            <button class="btn btn--primary btn--lg" id="btnStart" type="button">시작하기</button>
+          </div>
+        </div>
       </div>
     </div>
   `;
-	
-	$stage.innerHTML = html;
-	
-	const btn = document.getElementById("btnStart");
-	if (btn) {
-		btn.addEventListener("click", () => {
-			// 새로 시작(원하면 answers 유지/삭제 선택 가능)
-			step = 0;
-			render();
-		});
-	}
+
+    $stage.innerHTML = html;
+
+    const btn = document.getElementById("btnStart");
+    if (btn) {
+        btn.addEventListener("click", () => {
+            step = 0;
+            render();
+            scrollTopSmooth();
+        });
+    }
 }
 
 function renderLikertBlock(q, selected) {
-    const opts = Array.from({ length: 5 }, (_, i) => {
+    const items = Array.from({ length: 5 }, (_, i) => {
         const v = i + 1;
         const sel = (Number(selected) === v) ? "selected" : "";
         return `
-      <label class="opt ${sel}" data-qid="${q.id}" data-kind="likert" data-value="${v}">
-        <input type="radio" name="q${q.id}" value="${v}">
-        <div class="opt__num">${v}</div>
-        <div class="opt__lab">${escapeHtml(LIKERT_LABELS[i])}</div>
+      <label class="likertItem ${sel}" data-qid="${q.id}" data-kind="likert" data-value="${v}">
+        <input type="radio" name="q${q.id}" value="${v}" ${sel ? "checked" : ""}>
+        <span class="likertDot" aria-hidden="true"></span>
+        <span class="likertLabel">${escapeHtml(LIKERT_LABELS[i])}</span>
       </label>
     `;
     }).join("");
 
-    return `<div class="scale" id="block">${opts}</div>`;
+    return `
+    <div class="likert" id="block">
+      <div class="likertLine" aria-hidden="true"></div>
+      ${items}
+    </div>
+  `;
 }
 
 function renderSingleBlock(q, selected) {
-
-    // Q20 전용: 라디오 리스트형
+    // Q20: radio list
     if (q.id === 20) {
-        const items = q.options.map(opt => {
-            const sel = Number(selected) === Number(opt.type) ? "selected" : "";
-            return `
-        <div class="radioItem ${sel}" data-qid="${q.id}" data-kind="single" data-value="${opt.type}">
-          <div class="radioBullet"></div>
-          <div class="radioText">
-            <div class="radioTitle">${escapeHtml(opt.label)}</div>
-            <div class="radioDesc">${escapeHtml(opt.desc)}</div>
+        const items = q.options
+            .map((opt) => {
+                const sel = Number(selected) === Number(opt.type) ? "selected" : "";
+                return `
+          <div class="radioItem ${sel}" data-qid="${q.id}" data-kind="single" data-value="${opt.type}">
+            <div class="radioBullet"></div>
+            <div class="radioText">
+              <div class="radioTitle">${escapeHtml(opt.label)}</div>
+              <div class="radioDesc">${escapeHtml(opt.desc)}</div>
+            </div>
           </div>
-        </div>
-      `;
-        }).join("");
+        `;
+            })
+            .join("");
 
         return `<div class="radioList" id="block">${items}</div>`;
     }
 
-    // 기존(짧은 문구용)
-    const opts = q.options.map(opt => {
-        const sel = (Number(selected) === Number(opt.type)) ? "selected" : "";
-        return `
-      <div class="singleOpt ${sel}" data-qid="${q.id}" data-kind="single" data-value="${opt.type}">
-        <div class="singleOpt__top">${escapeHtml(opt.label)}</div>
-        <div class="singleOpt__sub">${escapeHtml(opt.desc ?? "")}</div>
-      </div>
-    `;
-    }).join("");
+    // default grid
+    const opts = q.options
+        .map((opt) => {
+            const sel = Number(selected) === Number(opt.type) ? "selected" : "";
+            return `
+        <div class="singleOpt ${sel}" data-qid="${q.id}" data-kind="single" data-value="${opt.type}">
+          <div class="singleOpt__top">${escapeHtml(opt.label)}</div>
+          <div class="singleOpt__sub">${escapeHtml(opt.desc ?? "")}</div>
+        </div>
+      `;
+        })
+        .join("");
 
     return `
     <div class="singleGrid" id="block">${opts}</div>
@@ -235,81 +238,72 @@ function bindQuestionEvents(q) {
         const kind = el.dataset.kind;
         const value = Number(el.dataset.value);
 
-        // 저장
-        if (kind === "likert") answers[qid] = value;
-        if (kind === "single") answers[qid] = value;
+        // save
+        answers[qid] = value;
 
         // UI selected
-        [...block.querySelectorAll(".selected")].forEach(x => x.classList.remove("selected"));
+        [...block.querySelectorAll(".selected")].forEach((x) => x.classList.remove("selected"));
         el.classList.add("selected");
 
-        // 에러 숨김
-        const err = document.getElementById("err");
-        if (err) err.style.display = "none";
+        // for likert: keep radio checked for accessibility
+        if (kind === "likert") {
+            const input = el.querySelector("input[type=radio]");
+            if (input) input.checked = true;
+        }
+
+        hideError();
     });
+}
+
+function goPrev() {
+    if (step > 0) {
+        step -= 1;
+        render();
+        scrollTopSmooth();
+    }
+}
+
+function goNext(q) {
+    const v = answers[q.id];
+    if (v == null) {
+        showError("응답을 선택해 주세요.");
+        return;
+    }
+
+    if (step === QUESTIONS.length - 1) step = QUESTIONS.length;
+    else step += 1;
+
+    render();
+    scrollTopSmooth();
 }
 
 function bindNavEvents(q) {
     const btnPrev = document.getElementById("btnPrev");
     const btnNext = document.getElementById("btnNext");
 
-    if (btnPrev) {
-        btnPrev.addEventListener("click", () => {
-            if (step > 0) {
-                step -= 1;
-                render();
-                scrollTopSmooth();
-            }
-        });
-    }
+    btnPrev?.addEventListener("click", goPrev);
+    btnNext?.addEventListener("click", () => goNext(q));
 
-    if (btnNext) {
-        btnNext.addEventListener("click", () => {
-            // 다음으로 가기 전 응답 체크
-            const v = answers[q.id];
-            if (v == null) {
-                const err = document.getElementById("err");
-                if (err) {
-                    err.textContent = "응답을 선택해 주세요.";
-                    err.style.display = "block";
-                }
-                return;
-            }
-
-            // 마지막 문항이면 결과로
-            if (step === QUESTIONS.length - 1) {
-                step = QUESTIONS.length;
-            } else {
-                step += 1;
-            }
-            render();
-            scrollTopSmooth();
-        });
-    }
-
-    // 키보드(선택 + 이동) — 선택사항이지만 UX 좋아짐
+    // keyboard UX
     window.onkeydown = (ev) => {
-        if (step === QUESTIONS.length) return; // 결과 페이지에서는 키보드 처리 제외
+        if (step === QUESTIONS.length) return; // result page 제외
 
         if (ev.key === "ArrowLeft") {
-            if (step > 0) {
-                step -= 1;
-                render();
-                scrollTopSmooth();
-            }
-        } else if (ev.key === "ArrowRight" || ev.key === "Enter") {
-            const v = answers[q.id];
-            if (v == null) return;
-            if (step === QUESTIONS.length - 1) step = QUESTIONS.length;
-            else step += 1;
-            render();
-            scrollTopSmooth();
-        } else if (q.kind === "likert") {
-            // 1~5 숫자키로 바로 선택
+            goPrev();
+            return;
+        }
+
+        if (ev.key === "ArrowRight" || ev.key === "Enter") {
+            goNext(q);
+            return;
+        }
+
+        // likert 1~5 shortcut
+        if (q.kind === "likert") {
             const n = Number(ev.key);
             if (n >= 1 && n <= 5) {
                 answers[q.id] = n;
-                render(); // 간단히 재렌더로 선택 표시
+                render(); // selected 표시를 위해 재렌더
             }
         }
     };
@@ -319,8 +313,6 @@ function bindNavEvents(q) {
 function renderResultPage() {
     const res = calcScores(QUESTIONS, answers);
 
-    // calcScores는 전체 미응답 체크도 하지만,
-    // 여기까지 왔다면 정상적으로 다 응답한 상태여야 합니다.
     if (!res.ok) {
         // 안전장치
         step = 0;
@@ -328,96 +320,106 @@ function renderResultPage() {
         return;
     }
 
-    const top3 = res.sorted.slice(0, 3).map(x => `${x.type}유형 ${x.pct}%`).join(" · ");
+    const top3 = res.sorted
+        .slice(0, 3)
+        .map((x) => `${x.type}유형 ${x.pct}%`)
+        .join(" · ");
+
     const info = TYPE_INFO[res.main];
     const wingInfo = TYPE_INFO[res.wing];
 
+    // ✅ 새 CSS(.bar__track/.bar__fill)에 맞춘 막대
     const barsHtml = Array.from({ length: 9 }, (_, i) => {
         const t = i + 1;
+        const pct = res.percent[t];
         return `
-      <div class="bar-row">
-        <div style="font-weight:900;">${t}</div>
-        <div class="bar"><div style="width:${res.percent[t]}%"></div></div>
-        <div style="text-align:right; font-weight:900;">${res.percent[t]}%</div>
+      <div class="bar">
+        <div class="bar__top">
+          <span>${t}유형</span>
+          <span>${pct}%</span>
+        </div>
+        <div class="bar__track">
+          <div class="bar__fill" style="width:${pct}%"></div>
+        </div>
       </div>
     `;
     }).join("");
 
     const html = `
-    <div class="card fadeIn">
-      <div class="card__header">
-        <div class="kicker">결과</div>
-        <h2 class="title">당신은 ${res.main}번 유형 · ${res.wing}번 날개(${res.main}w${res.wing})</h2>
-
-        <div class="badgeRow">
-          <span class="badge badge--accent">Top3: ${escapeHtml(top3)}</span>
-          <span class="badge">요약: ${escapeHtml(info.name)}</span>
-        </div>
-      </div>
-
-      <div class="card__body">
-        <p class="hint">
-          아래 점수는 “유형 가능성”을 보여줍니다. 상황(스트레스/회복/역할)에 따라 달라질 수 있습니다.
-        </p>
-
-        <div class="bars">${barsHtml}</div>
-
-        <div class="typebox">
-          <h3>${res.main}유형: ${escapeHtml(info.name)} <span style="color:#64748b;font-weight:800;">(날개: ${res.main}w${res.wing} — ${escapeHtml(wingInfo.name)})</span></h3>
-
-          <div class="hr"></div>
-          <b>강점(공동체에 주는 유익)</b>
-          <ul>${info.strengths.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
-
-          <div class="hr"></div>
-          <b>주의(흔한 함정)</b>
-          <ul>${info.blindspots.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
-
-          <div class="hr"></div>
-          <b>성장 포인트(실천 제안)</b>
-          <ul>${info.growth.map(s => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
-
-          <div class="hr"></div>
-          <b>날개 설명</b>
-          <div class="hint" style="margin:8px 0 0;">
-            <b>${res.main}w${res.wing}</b>는 기본 성향(${res.main}) 위에 인접 유형(${res.wing})의 색이 얹혀 나타날 수 있습니다.
-            말투/결정 속도/관계 방식에서 ${res.wing}유형의 특징이 더 도드라질 때가 있습니다.
+    <div class="backScreen">
+        <div class="card fadeIn">
+          <div class="card__header">
+            <div class="kicker">결과</div>
+            <h2 class="title">당신은 ${res.main}번 유형 · ${res.wing}번 날개(${res.main}w${res.wing})</h2>
+    
+            <div class="badgeRow">
+              <span class="badge badge--accent">Top3: ${escapeHtml(top3)}</span>
+              <span class="badge">요약: ${escapeHtml(info.name)}</span>
+            </div>
+          </div>
+    
+          <div class="card__body">
+            <p class="hint">
+              아래 점수는 “유형 가능성”을 보여줍니다. 상황(스트레스/회복/역할)에 따라 달라질 수 있습니다.
+            </p>
+    
+            <div class="bars">${barsHtml}</div>
+    
+            <div class="typebox">
+              <h3>${res.main}유형: ${escapeHtml(info.name)} <span style="color:var(--muted);font-weight:800;">(날개: ${res.main}w${res.wing} — ${escapeHtml(wingInfo.name)})</span></h3>
+    
+              <div class="hr"></div>
+              <b>강점(공동체에 주는 유익)</b>
+              <ul>${info.strengths.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
+    
+              <div class="hr"></div>
+              <b>주의(흔한 함정)</b>
+              <ul>${info.blindspots.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
+    
+              <div class="hr"></div>
+              <b>성장 포인트(실천 제안)</b>
+              <ul>${info.growth.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
+    
+              <div class="hr"></div>
+              <b>날개 설명</b>
+              <div class="hint" style="margin:8px 0 0;">
+                <b>${res.main}w${res.wing}</b>는 기본 성향(${res.main}) 위에 인접 유형(${res.wing})의 색이 얹혀 나타날 수 있습니다.
+                말투/결정 속도/관계 방식에서 ${res.wing}유형의 특징이 더 도드라질 때가 있습니다.
+              </div>
+            </div>
+    
+            <div class="actions">
+              <button class="btn btn--ghost" id="btnBackToLast" type="button">마지막 문항으로</button>
+              <button class="btn btn--primary" id="btnRestart" type="button">다시 하기</button>
+            </div>
           </div>
         </div>
-
-        <div class="actions">
-          <button class="btn btn--ghost" id="btnBackToLast" type="button">마지막 문항으로</button>
-          <button class="btn btn--primary" id="btnRestart" type="button">다시 하기</button>
-        </div>
-      </div>
     </div>
   `;
 
     $stage.innerHTML = html;
 
-    document.getElementById("btnRestart")?.addEventListener("click", () => {
-        resetAll();
-    });
-
+    document.getElementById("btnRestart")?.addEventListener("click", resetAll);
     document.getElementById("btnBackToLast")?.addEventListener("click", () => {
         step = QUESTIONS.length - 1;
         render();
         scrollTopSmooth();
     });
 
-    // 결과 페이지에서는 키보드 핸들러 제거(원치 않는 동작 방지)
+    // 결과 페이지에서는 키보드 핸들러 제거
     window.onkeydown = null;
 }
 
 // ---------------- actions ----------------
 function resetAll() {
     for (const k of Object.keys(answers)) delete answers[k];
-    step = 0;
+    step = -1;
     render();
     scrollTopSmooth();
 }
 
-$btnStartOver.addEventListener("click", resetAll);
+$btnStartOver?.addEventListener("click", resetAll);
 
 // init
+setYear();
 render();
