@@ -28,6 +28,7 @@
     --shadow-soft: 0 6px 16px rgba(0,0,0,.07);
 
     /* Layout heights */
+    --appH: 100vh;
     --topbar-h: 56px;
     --bottombar-h: 72px;
     --page-pad: 16px;
@@ -37,6 +38,9 @@
     --muted: #374151;          /* 카드/흰배경용 보조 텍스트 */
     --muted-soft: #6B7280;     /* 더 약한 설명/캡션용 */
     --muted-faint: #9CA3AF;    /* 아주 약한 메타 정보 */
+}
+@supports (height: 100dvh){
+    :root{ --appH: 100dvh; } /* 동적 뷰포트: 사파리 주소창 변화 반영 */
 }
 
 /* Dark mode (auto) */
@@ -762,6 +766,8 @@ input:focus, textarea:focus, select:focus{
 
 /* 상단바가 fixed/sticky일 때 콘텐츠가 안 가리도록 stage에 패딩을 확보 */
 #stage, .stage{
+    height: var(--appH);
+    min-height: var(--appH);
     position: fixed;
     inset: 0;
     overflow: hidden;
