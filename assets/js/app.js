@@ -7,7 +7,7 @@ const $progressBar = document.getElementById("progressBar");
 const $btnStartOver = document.getElementById("btnStartOver");
 
 const answers = {}; // qid -> likert(1~5) or single(type)
-let step = 0;       // 0..(QUESTIONS.length)  (QUESTIONS.length는 결과 페이지)
+let step = -1;       // 0..(QUESTIONS.length)  (QUESTIONS.length는 결과 페이지)
 
 // -----------------------------
 // Pastel background themes
@@ -66,8 +66,9 @@ function escapeHtml(str) {
 }
 
 function setProgress() {
-    const totalSteps = QUESTIONS.length + 1; // 문항 + 결과
-    const pct = Math.round((step / (totalSteps - 1)) * 100);
+	const total = QUESTIONS.length;
+	const current = Math.max(0, step);
+    const pct = Math.round((step / (total - 1)) * 100);
     $progressBar.style.width = `${pct}%`;
 }
 
@@ -81,6 +82,13 @@ function scrollTopSmooth() {
 
 // ---------------- render ----------------
 function render() {
+
+	// 초기 시작화면
+	if (step < 0) {
+		renderStartPage();
+		return;
+	}
+	
     setProgress();
 
     // 결과 페이지
@@ -122,6 +130,44 @@ function render() {
 
     bindQuestionEvents(q);
     bindNavEvents(q);
+}
+
+function renderStartPage() {
+	const total = QUESTIONS.length;
+	
+	const html = `
+    <div class="card fadeIn">
+      <div class="card__header">
+        <div class="kicker">에니어그램 테스트</div>
+        <h2 class="title">총 ${total}문항</h2>
+      </div>
+
+      <div class="card__body">
+        <p class="mainDesc">
+			본 테스트 결과는 개인의 성향을 단정하거나<br/>
+			신앙의 성숙도, 영성의 깊이를 평가하지 않습니다.<br/>
+			<br/>
+			에니어그램은 자신과 타인을 이해하기 위한 참고 도구이며,<br/>
+			결과는 <strong>절대적인 기준이나 진단</strong> 사용하지 않으시길 부탁드립니다.
+        </p>
+
+        <div class="actions actions--center">
+		  <button class="btn btn--primary btn--lg" id="btnStart" type="button">시작하기</button>
+		</div>
+      </div>
+    </div>
+  `;
+	
+	$stage.innerHTML = html;
+	
+	const btn = document.getElementById("btnStart");
+	if (btn) {
+		btn.addEventListener("click", () => {
+			// 새로 시작(원하면 answers 유지/삭제 선택 가능)
+			step = 0;
+			render();
+		});
+	}
 }
 
 function renderLikertBlock(q, selected) {
