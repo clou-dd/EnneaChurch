@@ -713,10 +713,10 @@ function bindShareCardEvents(res) {
 	const shareTitle = `에니어그램 결과 ${key}`;
 	
 	const shareText = [
-		"⭐⭐나의 에니어그램 결과⭐⭐",
-		`[${key}]`,
-		"",
-		"✔️ 결과 자세히 보기"
+`⭐⭐나의 에니어그램 결과⭐⭐
+[${key}]
+
+✔️ 결과 자세히 보기`
 	];
 	const shareUrl = buildResultUrl(res);
 	const shareTryUrl = "나도 해보러가기 : https://clou-dd.github.io/EnneaChurch";
