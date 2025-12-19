@@ -713,14 +713,13 @@ function bindShareCardEvents(res) {
 	const shareTitle = `에니어그램 결과 ${key}`;
 	
 	const shareText = [
-		"나의 에니어그램 결과",
-		`${key}`,
+		"⭐⭐⭐나의 에니어그램 결과⭐⭐⭐",
+		`[${key}]`,
 		"",
-		"교회 에니어그램 테스트"
-	].join("\n");
-	
-	// ✅ 결과 + (가능하면) 점수까지 포함한 URL 공유
+		"✔️ 결과 자세히 보기"
+	];
 	const shareUrl = buildResultUrl(res);
+	const shareTryUrl = "나도 해보러가기 : https://clou-dd.github.io/EnneaChurch";
 	
 	btn.addEventListener("click", async () => {
 		try {
@@ -742,7 +741,7 @@ function bindShareCardEvents(res) {
 						// -> URL 공유도 중요하니 text에 shareUrl을 같이 넣어줌
 						await navigator.share({
 							title: shareTitle,
-							text: `${shareText}\n\n${shareUrl}`,
+							text: `${shareText}\n\n${shareUrl}\n\n${shareTryUrl}`,
 							files: [file]
 						});
 						return;
