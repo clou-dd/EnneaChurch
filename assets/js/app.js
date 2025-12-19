@@ -500,37 +500,19 @@ function bindDownloadCardEvents(res) {
 	const cardEl = document.getElementById("resultDownloadCard");
 	if (!btn || !cardEl) return;
 	
-	const key = `${res.main}w${res.wing}`;
-	
 	btn.addEventListener("click", async () => {
 		try {
-			// html2canvas가 없다면 안내
-			if (typeof html2canvas !== "function") {
-				alert("이미지 저장 기능을 사용하려면 html2canvas 라이브러리가 필요합니다.");
-				return;
-			}
-			
 			btn.disabled = true;
 			btn.textContent = "이미지 생성 중…";
 			
-			// iOS 사파리에서 픽셀 선명도 위해 scale ↑
-			const canvas = await html2canvas(cardEl, {
-				backgroundColor: null,
-				scale: Math.max(2, window.devicePixelRatio || 2),
-				useCORS: true
-			});
+			const blob = await captureCardToBlob(cardEl);
+			await openImageInNewTabFromBlob(blob);
 			
-			const dataUrl = canvas.toDataURL("image/png");
-			
-			const a = document.createElement("a");
-			a.href = dataUrl;
-			a.download = `enneagram-${key}.png`;
-			document.body.appendChild(a);
-			a.click();
-			a.remove();
+			// 안내(인앱에서는 이 방식이 가장 안정적)
+			alert("새 탭에서 이미지가 열리면, 이미지를 길게 눌러 ‘사진에 저장’을 선택하세요.");
 		} catch (e) {
 			console.error(e);
-			alert("이미지 저장 중 오류가 발생했습니다.");
+			alert("이미지 생성/열기에 실패했습니다. (외부 이미지/폰트가 있으면 CORS 문제일 수 있습니다)");
 		} finally {
 			btn.disabled = false;
 			btn.textContent = "이미지 저장(PNG)";
@@ -556,6 +538,38 @@ async function captureCardToPngFile(cardEl, filenameBase) {
 	return { file, blob };
 }
 
+async function openImageInNewTabFromBlob(blob) {
+	const url = URL.createObjectURL(blob);
+	
+	// iOS 인앱에서 a.download는 실패가 잦아서 "열기"로 간다.
+	window.open(url, "_blank");
+	
+	// 메모리 정리(너무 빨리 해제하면 로딩 전에 끊길 수 있어 약간 늦게)
+	setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function captureCardToBlob(cardEl) {
+	if (typeof html2canvas !== "function") {
+		throw new Error("html2canvas_missing");
+	}
+	
+	// iOS에서 폰트가 늦게 적용되는 문제 방지
+	if (document.fonts && document.fonts.ready) {
+		try { await document.fonts.ready; } catch (_) {}
+	}
+	
+	const canvas = await html2canvas(cardEl, {
+		backgroundColor: "#ffffff",          // null 투명은 iOS에서 꼬이는 경우가 있어 흰색 권장
+		scale: Math.max(2, window.devicePixelRatio || 2),
+		useCORS: true,                        // 외부 리소스가 있으면 필요
+		allowTaint: false                     // taint 허용하면 저장 시 깨질 수 있어 false 유지
+	});
+	
+	const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
+	if (!blob) throw new Error("toBlob_failed");
+	return blob;
+}
+
 async function copyTextToClipboard(text) {
 	// HTTPS(깃허브 페이지 포함)에서만 동작하는 경우가 많음
 	if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
@@ -576,6 +590,10 @@ async function copyTextToClipboard(text) {
 	return ok;
 }
 
+function blobToFile(blob, filename) {
+	return new File([blob], filename, { type: "image/png" });
+}
+
 function bindShareCardEvents(res) {
 	const btn = document.getElementById("btnShareCard");
 	const cardEl = document.getElementById("resultDownloadCard");
@@ -591,39 +609,47 @@ function bindShareCardEvents(res) {
 			btn.disabled = true;
 			btn.textContent = "공유 준비 중…";
 			
-			// 1) 이미지 파일 공유가 가능한 환경이면(모바일에서 주로)
-			if (navigator.share && navigator.canShare) {
+			// 1) 이미지 파일 공유 시도
+			if (navigator.share) {
 				try {
-					const { file } = await captureCardToPngFile(cardEl, `enneagram-${key}`);
-					const dataWithFile = { title: shareTitle, text: shareText, files: [file] };
+					const blob = await captureCardToBlob(cardEl);
+					const file = blobToFile(blob, `enneagram-${key}.png`);
 					
-					if (navigator.canShare(dataWithFile)) {
-						await navigator.share(dataWithFile);
+					// iOS에서 canShare가 없는 경우도 있어 방어적으로 처리
+					const canFileShare = typeof navigator.canShare === "function"
+						? navigator.canShare({ files: [file] })
+						: true;
+					
+					if (canFileShare) {
+						await navigator.share({ title: shareTitle, text: shareText, files: [file] });
 						return;
 					}
 				} catch (e) {
-					// 이미지 캡처/파일공유 실패 시 URL 공유로 폴백
-					console.warn("file share fallback:", e);
+					console.warn("file share failed -> fallback:", e);
+				}
+				
+				// 2) URL 공유로 폴백
+				try {
+					await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+					return;
+				} catch (e) {
+					console.warn("url share failed -> fallback:", e);
 				}
 			}
 			
-			// 2) URL 공유(Web Share) 가능하면 URL로 공유
-			if (navigator.share) {
-				await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
-				return;
-			}
-			
-			// 3) 그 외: 링크 복사
-			const ok = await copyTextToClipboard(shareUrl);
-			alert(ok ? "링크를 복사했습니다." : "공유를 지원하지 않는 환경입니다. 주소를 직접 복사해 주세요.");
+			// 3) 마지막 폴백: 이미지 새 탭 열기
+			const blob = await captureCardToBlob(cardEl);
+			await openImageInNewTabFromBlob(blob);
+			alert("공유가 제한되어 새 탭으로 이미지를 열었습니다. 길게 눌러 저장 후 공유해 주세요.");
 		} catch (e) {
 			console.error(e);
-			alert("공유 중 오류가 발생했습니다.");
+			alert("공유에 실패했습니다. (인앱 브라우저 제한 또는 CORS 문제 가능)");
 		} finally {
 			btn.disabled = false;
 			btn.textContent = "공유하기";
 		}
 	});
 }
+
 
 render();
