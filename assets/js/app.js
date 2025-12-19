@@ -706,65 +706,52 @@ async function captureCardToBlob(cardEl) {
 
 function bindShareCardEvents(res) {
 	const btn = document.getElementById("btnShareCard");
-	const cardEl = document.getElementById("resultDownloadCard");
-	if (!btn || !cardEl) return;
-	
+	if (!btn) return;
+
 	const key = `${res.main}w${res.wing}`;
+
+	const shareUrl = buildResultUrl(res);
 	const shareTitle = `에니어그램 결과 ${key}`;
-	
 	const shareText = [
 `⭐⭐나의 에니어그램 결과⭐⭐
 [${key}]
 
-✔️ 결과 자세히 보기`
-	];
-	const shareUrl = buildResultUrl(res);
-	const shareTryUrl = "나도 해보러가기 : https://clou-dd.github.io/EnneaChurch";
-	
+✔️ 결과 자세히 보기
+${shareUrl}`
+	].filter(Boolean).join("\n");
+
 	btn.addEventListener("click", async () => {
 		try {
 			btn.disabled = true;
-			btn.textContent = "공유 준비 중…";
-			
-			const blob = await captureCardToBlob(cardEl);
-			
-			// 1) 가능하면 파일 공유 (이미지)
+			btn.textContent = "공유 중…";
+
+			// 1) Web Share가 되면 텍스트만 공유 (카톡 포함 대부분 OK)
 			if (navigator.share) {
-				try {
-					const file = new File([blob], `enneagram-${key}.png`, { type: "image/png" });
-					const canFileShare = typeof navigator.canShare === "function"
-						? navigator.canShare({ files: [file] })
-						: true;
-					
-					if (canFileShare) {
-						// iOS에서는 files 공유 시 url이 무시될 수 있어(앱마다 다름)
-						// -> URL 공유도 중요하니 text에 shareUrl을 같이 넣어줌
-						await navigator.share({
-							title: shareTitle,
-							text: `${shareText}\n\n${shareUrl}\n\n${shareTryUrl}`,
-							files: [file]
-						});
-						return;
-					}
-				} catch (e) {
-					console.warn("file share failed, fallback:", e);
-				}
-				
-				// 2) URL 공유
-				try {
-					await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
-					return;
-				} catch (e) {
-					console.warn("url share failed, fallback:", e);
-				}
+				await navigator.share({
+					title: shareTitle,
+					text: shareText
+					// url을 따로 넣어도 되지만, 일부 앱은 url을 무시하는 경우가 있어
+					// text 안에 shareUrl을 넣는 게 가장 확실함
+				});
+				return;
 			}
-			
-			// 3) 마지막: 오버레이로 띄워서 길게 눌러 공유/저장 유도
-			showImagePreviewFromBlob(blob);
-			alert(`공유가 제한되어 이미지 미리보기를 열었습니다.\n\n링크:\n${shareUrl}`);
+
+			// 2) Web Share가 없으면 링크/텍스트 복사
+			const ok = await copyTextToClipboard(shareText);
+			alert(ok ? "공유용 텍스트를 복사했습니다. 카톡에 붙여넣기 하세요." : "공유를 지원하지 않는 환경입니다. 직접 복사해 주세요.");
 		} catch (e) {
+			// 사용자가 공유 시트를 닫은 경우 AbortError가 흔함
+			if (e?.name === "AbortError") return;
+
 			console.error(e);
-			alert("공유에 실패했습니다. (인앱 브라우저 제한 또는 CORS 문제 가능)");
+
+			// 3) 예외가 나도 마지막 폴백: 복사
+			try {
+				const ok = await copyTextToClipboard(shareText);
+				alert(ok ? "공유가 제한되어 텍스트를 복사했습니다. 카톡에 붙여넣기 하세요." : "공유에 실패했습니다.");
+			} catch (_) {
+				alert("공유에 실패했습니다.");
+			}
 		} finally {
 			btn.disabled = false;
 			btn.textContent = "공유하기";
@@ -827,6 +814,25 @@ function showImagePreviewFromBlob(blob) {
 	overlay.style.display = "flex";
 	
 	setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function copyTextToClipboard(text) {
+	if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+		await navigator.clipboard.writeText(text);
+		return true;
+	}
+
+	// 레거시 폴백
+	const ta = document.createElement("textarea");
+	ta.value = text;
+	ta.setAttribute("readonly", "");
+	ta.style.position = "fixed";
+	ta.style.left = "-9999px";
+	document.body.appendChild(ta);
+	ta.select();
+	const ok = document.execCommand("copy");
+	ta.remove();
+	return ok;
 }
 
 // ---------------- start ----------------
