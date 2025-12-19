@@ -506,7 +506,7 @@ function bindDownloadCardEvents(res) {
 			btn.textContent = "이미지 생성 중…";
 			
 			const blob = await captureCardToBlob(cardEl);
-			await openImageInNewTabFromBlob(blob);
+			showImagePreviewFromBlob(blob);
 			
 			// 안내(인앱에서는 이 방식이 가장 안정적)
 			alert("새 탭에서 이미지가 열리면, 이미지를 길게 눌러 ‘사진에 저장’을 선택하세요.");
@@ -518,34 +518,6 @@ function bindDownloadCardEvents(res) {
 			btn.textContent = "이미지 저장(PNG)";
 		}
 	});
-}
-
-async function captureCardToPngFile(cardEl, filenameBase) {
-	if (typeof html2canvas !== "function") {
-		throw new Error("html2canvas_missing");
-	}
-	
-	const canvas = await html2canvas(cardEl, {
-		backgroundColor: null,
-		scale: Math.max(2, window.devicePixelRatio || 2),
-		useCORS: true
-	});
-	
-	const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-	if (!blob) throw new Error("toBlob_failed");
-	
-	const file = new File([blob], `${filenameBase}.png`, { type: "image/png" });
-	return { file, blob };
-}
-
-async function openImageInNewTabFromBlob(blob) {
-	const url = URL.createObjectURL(blob);
-	
-	// iOS 인앱에서 a.download는 실패가 잦아서 "열기"로 간다.
-	window.open(url, "_blank");
-	
-	// 메모리 정리(너무 빨리 해제하면 로딩 전에 끊길 수 있어 약간 늦게)
-	setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 async function captureCardToBlob(cardEl) {
@@ -570,30 +542,6 @@ async function captureCardToBlob(cardEl) {
 	return blob;
 }
 
-async function copyTextToClipboard(text) {
-	// HTTPS(깃허브 페이지 포함)에서만 동작하는 경우가 많음
-	if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-		await navigator.clipboard.writeText(text);
-		return true;
-	}
-	
-	// 레거시 폴백
-	const ta = document.createElement("textarea");
-	ta.value = text;
-	ta.setAttribute("readonly", "");
-	ta.style.position = "fixed";
-	ta.style.left = "-9999px";
-	document.body.appendChild(ta);
-	ta.select();
-	const ok = document.execCommand("copy");
-	ta.remove();
-	return ok;
-}
-
-function blobToFile(blob, filename) {
-	return new File([blob], filename, { type: "image/png" });
-}
-
 function bindShareCardEvents(res) {
 	const btn = document.getElementById("btnShareCard");
 	const cardEl = document.getElementById("resultDownloadCard");
@@ -601,9 +549,12 @@ function bindShareCardEvents(res) {
 	
 	const key = `${res.main}w${res.wing}`;
 	const shareTitle = `에니어그램 결과 ${key}`;
-	const shareText =
-`나의 에니어그램 결과: ${key}
-에니어그램 검사 해보기 : https://clou-dd.github.io/EnneaChurch/`;
+	const shareText = [
+		"나의 에니어그램 결과",
+		`${key}`,
+		"",
+		"교회 에니어그램 테스트"
+	].join("\n");
 	const shareUrl = window.location.href;
 	
 	btn.addEventListener("click", async () => {
@@ -611,13 +562,12 @@ function bindShareCardEvents(res) {
 			btn.disabled = true;
 			btn.textContent = "공유 준비 중…";
 			
-			// 1) 이미지 파일 공유 시도
+			const blob = await captureCardToBlob(cardEl);
+			
+			// 1) 가능하면 파일 공유
 			if (navigator.share) {
 				try {
-					const blob = await captureCardToBlob(cardEl);
-					const file = blobToFile(blob, `enneagram-${key}.png`);
-					
-					// iOS에서 canShare가 없는 경우도 있어 방어적으로 처리
+					const file = new File([blob], `enneagram-${key}.png`, { type: "image/png" });
 					const canFileShare = typeof navigator.canShare === "function"
 						? navigator.canShare({ files: [file] })
 						: true;
@@ -627,22 +577,20 @@ function bindShareCardEvents(res) {
 						return;
 					}
 				} catch (e) {
-					console.warn("file share failed -> fallback:", e);
+					console.warn("file share failed, fallback:", e);
 				}
 				
-				// 2) URL 공유로 폴백
+				// 2) URL 공유
 				try {
 					await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
 					return;
 				} catch (e) {
-					console.warn("url share failed -> fallback:", e);
+					console.warn("url share failed, fallback:", e);
 				}
 			}
 			
-			// 3) 마지막 폴백: 이미지 새 탭 열기
-			const blob = await captureCardToBlob(cardEl);
-			await openImageInNewTabFromBlob(blob);
-			alert("공유가 제한되어 새 탭으로 이미지를 열었습니다. 길게 눌러 저장 후 공유해 주세요.");
+			// 3) 마지막: 오버레이로 띄워서 길게 눌러 공유/저장 유도
+			showImagePreviewFromBlob(blob);
 		} catch (e) {
 			console.error(e);
 			alert("공유에 실패했습니다. (인앱 브라우저 제한 또는 CORS 문제 가능)");
@@ -651,6 +599,64 @@ function bindShareCardEvents(res) {
 			btn.textContent = "공유하기";
 		}
 	});
+}
+
+function ensureImagePreviewOverlay() {
+	if (document.getElementById("imgPreviewOverlay")) return;
+	
+	const wrap = document.createElement("div");
+	wrap.id = "imgPreviewOverlay";
+	wrap.style.cssText = `
+    position:fixed; inset:0; z-index:9999;
+    display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.55); padding:16px;
+  `;
+	
+	wrap.innerHTML = `
+    <div style="
+      width:min(520px, 100%);
+      background:#fff; border-radius:18px; padding:14px;
+      box-shadow:0 18px 40px rgba(0,0,0,.25);
+      ">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div style="font-weight:900; font-size:14px; color:#0f172a;">이미지 미리보기</div>
+        <button type="button" id="btnCloseImgPreview"
+          style="border:0; background:transparent; font-size:18px; padding:6px 8px; cursor:pointer;">✕</button>
+      </div>
+
+      <div style="margin-top:10px;">
+        <img id="imgPreviewEl" alt="result card"
+          style="width:100%; height:auto; display:block; border-radius:14px; border:1px solid rgba(15,23,42,.10);" />
+      </div>
+
+      <div style="margin-top:10px; font-size:12px; color:#475569; line-height:1.4;">
+        이미지를 길게 눌러 “사진에 저장” 또는 “공유”를 선택하세요.
+      </div>
+    </div>
+  `;
+	
+	document.body.appendChild(wrap);
+	
+	wrap.addEventListener("click", (e) => {
+		if (e.target === wrap) wrap.style.display = "none";
+	});
+	
+	document.getElementById("btnCloseImgPreview").addEventListener("click", () => {
+		wrap.style.display = "none";
+	});
+}
+
+function showImagePreviewFromBlob(blob) {
+	ensureImagePreviewOverlay();
+	const overlay = document.getElementById("imgPreviewOverlay");
+	const img = document.getElementById("imgPreviewEl");
+	
+	const url = URL.createObjectURL(blob);
+	img.src = url;
+	overlay.style.display = "flex";
+	
+	// 너무 빨리 revoke하면 iOS에서 이미지가 안 뜰 수 있어 넉넉히 지연
+	setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 
