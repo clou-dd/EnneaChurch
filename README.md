@@ -48,10 +48,13 @@
 └── assets
     ├── css
     │   └── app.css
+    │   └── resultCard.css
     └── js
         ├── interpretations.js  # 유형 정의
         ├── questions.js        # 질문 정의
         ├── scoring.js          # 점수 계산 모듈 
+        ├── resultCard.js       # 결과 카드 모듈
+        ├── shareCodec.js       # 결과지표 공유를 위한 암복호화 처리 모듈
         └── app.js              # 화면 제어 / 상태 관리 / 결과 계산
 ```
 
@@ -82,5 +85,5 @@
 
 V1.0 : 초기 소스 커밋  
 V1.1 : CSS 변경, 모바일 대응 소스 추가  
-V1.2 : 문항 수 30개로 증가
+V1.2 : 문항 수 30개로 증가  
 V1.3 : CSS 변경, 결과 공유 작업 추가
