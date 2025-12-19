@@ -1,97 +1,97 @@
 import { QUESTIONS, LIKERT_LABELS } from "./questions.js";
 import { TYPE_INFO } from "./interpretations.js";
 import { calcScores } from "./scoring.js";
+import { ENNEAGRAM_CARDS } from "./resultCard.js";
 
 const $stage = document.getElementById("stage");
 const $progressBar = document.getElementById("progressBar");
 const $btnStartOver = document.getElementById("btnStartOver");
-const $year = document.getElementById("year");
 
 const answers = {}; // qid -> likert(1~5) or single(type)
 let step = -1; // -1: start, 0..QUESTIONS.length-1: questions, QUESTIONS.length: result
 
 // ---------------- utils ----------------
 function escapeHtml(str) {
-    return String(str)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+	return String(str)
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#039;");
 }
 
 function clamp(n, min, max) {
-    return Math.max(min, Math.min(max, n));
+	return Math.max(min, Math.min(max, n));
 }
 
 function setProgress() {
-    if (!$progressBar) return;
-
-    const total = QUESTIONS.length;
-
-    // start page
-    if (step < 0) {
-        $progressBar.style.width = "0%";
-        return;
-    }
-
-    // result page or beyond
-    if (step >= total) {
-        $progressBar.style.width = "100%";
-        return;
-    }
-
-    // question pages: 0..total-1 -> 0..100
-    const denom = Math.max(1, total - 1);
-    const pct = Math.round((step / denom) * 100);
-    $progressBar.style.width = `${clamp(pct, 0, 100)}%`;
+	if (!$progressBar) return;
+	
+	const total = QUESTIONS.length;
+	
+	// start page
+	if (step < 0) {
+		$progressBar.style.width = "0%";
+		return;
+	}
+	
+	// result page or beyond
+	if (step >= total) {
+		$progressBar.style.width = "100%";
+		return;
+	}
+	
+	// question pages: 0..total-1 -> 0..100
+	const denom = Math.max(1, total - 1);
+	const pct = Math.round((step / denom) * 100);
+	$progressBar.style.width = `${clamp(pct, 0, 100)}%`;
 }
 
 function scrollTopSmooth() {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+	window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function showError(msg) {
-    const err = document.getElementById("err");
-    if (!err) return;
-    err.textContent = msg;
-    err.classList.add("is-show");
+	const err = document.getElementById("err");
+	if (!err) return;
+	err.textContent = msg;
+	err.classList.add("is-show");
 }
 
 function hideError() {
-    const err = document.getElementById("err");
-    if (!err) return;
-    err.textContent = "";
-    err.classList.remove("is-show");
+	const err = document.getElementById("err");
+	if (!err) return;
+	err.textContent = "";
+	err.classList.remove("is-show");
 }
 
 // ---------------- render ----------------
 function render() {
-    // start
-    if (step < 0) {
-        setProgress();
-        renderStartPage();
-        return;
-    }
-
-    // result
-    if (step === QUESTIONS.length) {
-        setProgress();
-        renderResultPage();
-        return;
-    }
-
-    // question page
-    setProgress();
-
-    const q = QUESTIONS[step];
-    if (!q) return;
-
-    const currentIndex = step + 1;
-    const total = QUESTIONS.length;
-    const selected = answers[q.id];
-
-    const html = `
+	// start
+	if (step < 0) {
+		setProgress();
+		renderStartPage();
+		return;
+	}
+	
+	// result
+	if (step === QUESTIONS.length) {
+		setProgress();
+		renderResultPage();
+		return;
+	}
+	
+	// question page
+	setProgress();
+	
+	const q = QUESTIONS[step];
+	if (!q) return;
+	
+	const currentIndex = step + 1;
+	const total = QUESTIONS.length;
+	const selected = answers[q.id];
+	
+	const html = `
     <div class="backScreen">
         <div class="card fadeIn">
           <div class="card__header">
@@ -114,17 +114,17 @@ function render() {
         </div>
     </div>
   `;
-
-    $stage.innerHTML = html;
-
-    bindQuestionEvents(q);
-    bindNavEvents(q);
+	
+	$stage.innerHTML = html;
+	
+	bindQuestionEvents(q);
+	bindNavEvents(q);
 }
 
 function renderStartPage() {
-    const total = QUESTIONS.length;
-
-    const html = `
+	const total = QUESTIONS.length;
+	
+	const html = `
     <div class="backScreen">
       <div class="card fadeIn startCard">
         <div class="card__header">
@@ -147,33 +147,33 @@ function renderStartPage() {
       </div>
     </div>
   `;
-
-    $stage.innerHTML = html;
-
-    const btn = document.getElementById("btnStart");
-    if (btn) {
-        btn.addEventListener("click", () => {
-            step = 0;
-            render();
-            scrollTopSmooth();
-        });
-    }
+	
+	$stage.innerHTML = html;
+	
+	const btn = document.getElementById("btnStart");
+	if (btn) {
+		btn.addEventListener("click", () => {
+			step = 0;
+			render();
+			scrollTopSmooth();
+		});
+	}
 }
 
 function renderLikertBlock(q, selected) {
-    const items = Array.from({ length: 5 }, (_, i) => {
-        const v = i + 1;
-        const sel = (Number(selected) === v) ? "selected" : "";
-        return `
+	const items = Array.from({ length: 5 }, (_, i) => {
+		const v = i + 1;
+		const sel = (Number(selected) === v) ? "selected" : "";
+		return `
       <label class="likertItem ${sel}" data-qid="${q.id}" data-kind="likert" data-value="${v}">
         <input type="radio" name="q${q.id}" value="${v}" ${sel ? "checked" : ""}>
         <span class="likertDot" aria-hidden="true"></span>
         <span class="likertLabel">${escapeHtml(LIKERT_LABELS[i])}</span>
       </label>
     `;
-    }).join("");
-
-    return `
+	}).join("");
+	
+	return `
     <div class="likert" id="block">
       <div class="likertLine" aria-hidden="true"></div>
       ${items}
@@ -182,12 +182,12 @@ function renderLikertBlock(q, selected) {
 }
 
 function renderSingleBlock(q, selected) {
-    // Q20: radio list
-    if (q.id === 20) {
-        const items = q.options
-            .map((opt) => {
-                const sel = Number(selected) === Number(opt.type) ? "selected" : "";
-                return `
+	// Q20: radio list
+	if (q.id === 20) {
+		const items = q.options
+			.map((opt) => {
+				const sel = Number(selected) === Number(opt.type) ? "selected" : "";
+				return `
           <div class="radioItem ${sel}" data-qid="${q.id}" data-kind="single" data-value="${opt.type}">
             <div class="radioBullet"></div>
             <div class="radioText">
@@ -196,138 +196,138 @@ function renderSingleBlock(q, selected) {
             </div>
           </div>
         `;
-            })
-            .join("");
-
-        return `<div class="radioList" id="block">${items}</div>`;
-    }
-
-    // default grid
-    const opts = q.options
-        .map((opt) => {
-            const sel = Number(selected) === Number(opt.type) ? "selected" : "";
-            return `
+			})
+			.join("");
+		
+		return `<div class="radioList" id="block">${items}</div>`;
+	}
+	
+	// default grid
+	const opts = q.options
+		.map((opt) => {
+			const sel = Number(selected) === Number(opt.type) ? "selected" : "";
+			return `
         <div class="singleOpt ${sel}" data-qid="${q.id}" data-kind="single" data-value="${opt.type}">
           <div class="singleOpt__top">${escapeHtml(opt.label)}</div>
           <div class="singleOpt__sub">${escapeHtml(opt.desc ?? "")}</div>
         </div>
       `;
-        })
-        .join("");
-
-    return `
+		})
+		.join("");
+	
+	return `
     <div class="singleGrid" id="block">${opts}</div>
     <p class="hint" style="margin-top:10px;">※ 하나만 선택</p>
   `;
 }
 
 function bindQuestionEvents(q) {
-    const block = document.getElementById("block");
-    if (!block) return;
-
-    block.addEventListener("click", (e) => {
-        const el = e.target.closest("[data-qid]");
-        if (!el) return;
-
-        const qid = Number(el.dataset.qid);
-        const kind = el.dataset.kind;
-        const value = Number(el.dataset.value);
-
-        // save
-        answers[qid] = value;
-
-        // UI selected
-        [...block.querySelectorAll(".selected")].forEach((x) => x.classList.remove("selected"));
-        el.classList.add("selected");
-
-        // for likert: keep radio checked for accessibility
-        if (kind === "likert") {
-            const input = el.querySelector("input[type=radio]");
-            if (input) input.checked = true;
-        }
-
-        hideError();
-    });
+	const block = document.getElementById("block");
+	if (!block) return;
+	
+	block.addEventListener("click", (e) => {
+		const el = e.target.closest("[data-qid]");
+		if (!el) return;
+		
+		const qid = Number(el.dataset.qid);
+		const kind = el.dataset.kind;
+		const value = Number(el.dataset.value);
+		
+		// save
+		answers[qid] = value;
+		
+		// UI selected
+		[...block.querySelectorAll(".selected")].forEach((x) => x.classList.remove("selected"));
+		el.classList.add("selected");
+		
+		// for likert: keep radio checked for accessibility
+		if (kind === "likert") {
+			const input = el.querySelector("input[type=radio]");
+			if (input) input.checked = true;
+		}
+		
+		hideError();
+	});
 }
 
 function goPrev() {
-    if (step > 0) {
-        step -= 1;
-        render();
-        scrollTopSmooth();
-    }
+	if (step > 0) {
+		step -= 1;
+		render();
+		scrollTopSmooth();
+	}
 }
 
 function goNext(q) {
-    const v = answers[q.id];
-    if (v == null) {
-        showError("응답을 선택해 주세요.");
-        return;
-    }
-
-    if (step === QUESTIONS.length - 1) step = QUESTIONS.length;
-    else step += 1;
-
-    render();
-    scrollTopSmooth();
+	const v = answers[q.id];
+	if (v == null) {
+		showError("응답을 선택해 주세요.");
+		return;
+	}
+	
+	if (step === QUESTIONS.length - 1) step = QUESTIONS.length;
+	else step += 1;
+	
+	render();
+	scrollTopSmooth();
 }
 
 function bindNavEvents(q) {
-    const btnPrev = document.getElementById("btnPrev");
-    const btnNext = document.getElementById("btnNext");
-
-    btnPrev?.addEventListener("click", goPrev);
-    btnNext?.addEventListener("click", () => goNext(q));
-
-    // keyboard UX
-    window.onkeydown = (ev) => {
-        if (step === QUESTIONS.length) return; // result page 제외
-
-        if (ev.key === "ArrowLeft") {
-            goPrev();
-            return;
-        }
-
-        if (ev.key === "ArrowRight" || ev.key === "Enter") {
-            goNext(q);
-            return;
-        }
-
-        // likert 1~5 shortcut
-        if (q.kind === "likert") {
-            const n = Number(ev.key);
-            if (n >= 1 && n <= 5) {
-                answers[q.id] = n;
-                render(); // selected 표시를 위해 재렌더
-            }
-        }
-    };
+	const btnPrev = document.getElementById("btnPrev");
+	const btnNext = document.getElementById("btnNext");
+	
+	btnPrev?.addEventListener("click", goPrev);
+	btnNext?.addEventListener("click", () => goNext(q));
+	
+	// keyboard UX
+	window.onkeydown = (ev) => {
+		if (step === QUESTIONS.length) return; // result page 제외
+		
+		if (ev.key === "ArrowLeft") {
+			goPrev();
+			return;
+		}
+		
+		if (ev.key === "ArrowRight" || ev.key === "Enter") {
+			goNext(q);
+			return;
+		}
+		
+		// likert 1~5 shortcut
+		if (q.kind === "likert") {
+			const n = Number(ev.key);
+			if (n >= 1 && n <= 5) {
+				answers[q.id] = n;
+				render(); // selected 표시를 위해 재렌더
+			}
+		}
+	};
 }
 
 // ---------------- result page ----------------
 function renderResultPage() {
-    const res = calcScores(QUESTIONS, answers);
-
-    if (!res.ok) {
-        // 안전장치
-        step = 0;
-        render();
-        return;
-    }
-
-    const top3 = res.sorted
-        .slice(0, 3)
-        .map((x) => `${x.type}유형 ${x.pct}%`)
-        .join(" · ");
-
-    const info = TYPE_INFO[res.main];
-    const wingInfo = TYPE_INFO[res.wing];
-
-    // ✅ 새 CSS(.bar__track/.bar__fill)에 맞춘 막대
-    const barsHtml = Array.from({ length: 9 }, (_, i) => {
-        const t = i + 1;
-        const pct = res.percent[t];
-        return `
+	const res = calcScores(QUESTIONS, answers);
+	
+	if (!res.ok) {
+		// 안전장치
+		step = 0;
+		render();
+		return;
+	}
+	
+	const top3 = res.sorted
+		.slice(0, 3)
+		.map((x) => `${x.type}유형 ${x.pct}%`)
+		.join(" · ");
+	
+	const info = TYPE_INFO[res.main];
+	const wingInfo = TYPE_INFO[res.wing];
+	
+	// ✅ 새 CSS(.bar__track/.bar__fill)에 맞춘 막대
+	const barsHtml = Array.from({ length: 9 }, (_, i) => {
+		const t = i + 1;
+		const pct = res.percent[t];
+		return `
       <div class="bar">
         <div class="bar__top">
           <span>${t}유형</span>
@@ -338,10 +338,13 @@ function renderResultPage() {
         </div>
       </div>
     `;
-    }).join("");
-
-    const html = `
+	}).join("");
+	const downloadCardHtml = renderDownloadCardSection(res);
+	
+	const html = `
     <div class="backScreen">
+        ${downloadCardHtml}
+        
         <div class="card fadeIn">
           <div class="card__header">
             <div class="kicker">결과</div>
@@ -391,34 +394,37 @@ function renderResultPage() {
         </div>
     </div>
   `;
-
-    $stage.innerHTML = html;
-
-    document.getElementById("btnRestart")?.addEventListener("click", resetAll);
-    document.getElementById("btnBackToLast")?.addEventListener("click", () => {
-        step = QUESTIONS.length - 1;
-        render();
-        scrollTopSmooth();
-    });
-
-    // 결과 페이지에서는 키보드 핸들러 제거
-    window.onkeydown = null;
+	
+	$stage.innerHTML = html;
+	
+	document.getElementById("btnRestart")?.addEventListener("click", resetAll);
+	document.getElementById("btnBackToLast")?.addEventListener("click", () => {
+		step = QUESTIONS.length - 1;
+		render();
+		scrollTopSmooth();
+	});
+	
+	bindDownloadCardEvents(res); // 카드 다운
+	bindShareCardEvents(res); // 카드 공유하기
+	
+	// 결과 페이지에서는 키보드 핸들러 제거
+	window.onkeydown = null;
 }
 
 // ---------------- actions ----------------
 function resetAll() {
-    for (const k of Object.keys(answers)) delete answers[k];
-    step = -1;
-    render();
-    scrollTopSmooth();
+	for (const k of Object.keys(answers)) delete answers[k];
+	step = -1;
+	render();
+	scrollTopSmooth();
 }
 
 $btnStartOver?.addEventListener("click", resetAll);
 
 // 모바일 높이 계산 대응
 function syncAppHeight() {
-    const h = window.visualViewport?.height ?? window.innerHeight;
-    document.documentElement.style.setProperty("--appH", `${h}px`);
+	const h = window.visualViewport?.height ?? window.innerHeight;
+	document.documentElement.style.setProperty("--appH", `${h}px`);
 }
 
 // init
@@ -426,4 +432,198 @@ syncAppHeight();
 window.addEventListener("resize", syncAppHeight);
 window.visualViewport?.addEventListener("resize", syncAppHeight);
 window.visualViewport?.addEventListener("scroll", syncAppHeight);
+/**
+ * 최상단 "이미지 다운로드용 카드" 섹션 HTML
+ * - res: { main: number|string, wing: number|string, ... }
+ */
+function renderDownloadCardSection(res) {
+	const key = `${res.main}w${res.wing}`;
+	const card = ENNEAGRAM_CARDS[key];
+	
+	// 데이터 누락 시에도 UI가 깨지지 않게 fallback
+	const title = card?.title ?? "결과 카드";
+	const summary = card?.summary ?? "";
+	const description = card?.description ?? "";
+	const bibleChars = (card?.bibleCharacters ?? []).join(", ");
+	const fruit = card?.fruitOfSpirit ?? "";
+	
+	return `
+    <section class="dlCardSection">
+      <div class="dlCardSection__head">
+      </div>
+
+      <!-- 캡처 대상 -->
+      <div class="dlCardWrap">
+        <div class="dlCard" id="resultDownloadCard" data-type="${key}">
+          <div class="dlCard__top">
+            <div class="dlCard__type">${key}</div>
+            <div class="dlCard__title">${escapeHtml(title)}</div>
+          </div>
+
+          <div class="dlCard__mid">
+            ${summary ? `<div class="dlCard__summary">${escapeHtml(summary)}</div>` : ""}
+            ${description ? `<div class="dlCard__desc">${escapeHtml(description)}</div>` : ""}
+          </div>
+
+          <div class="dlCard__bottom">
+            <div class="dlCard__meta">
+              <div class="dlCard__label">성경 인물</div>
+              <div class="dlCard__value">${escapeHtml(bibleChars || "-")}</div>
+            </div>
+            <div class="dlCard__meta">
+              <div class="dlCard__label">성령의 열매</div>
+              <div class="dlCard__value">${escapeHtml(fruit || "-")}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dlCardSection__actions" style="margin-top: 10px; margin-bottom: 10px;">
+          <button type="button" class="btn btn--ghost" id="btnShareCard">
+            공유하기
+          </button>
+	      <button type="button" class="btn btn--ghost" id="btnDownloadCardPng">
+	        이미지 저장(PNG)
+	      </button>
+	  </div>
+    </section>
+  `;
+}
+
+/**
+ * 다운로드 버튼 이벤트 바인딩
+ * - html2canvas가 있으면 PNG 저장
+ * - 없으면 안내
+ */
+function bindDownloadCardEvents(res) {
+	const btn = document.getElementById("btnDownloadCardPng");
+	const cardEl = document.getElementById("resultDownloadCard");
+	if (!btn || !cardEl) return;
+	
+	const key = `${res.main}w${res.wing}`;
+	
+	btn.addEventListener("click", async () => {
+		try {
+			// html2canvas가 없다면 안내
+			if (typeof html2canvas !== "function") {
+				alert("이미지 저장 기능을 사용하려면 html2canvas 라이브러리가 필요합니다.");
+				return;
+			}
+			
+			btn.disabled = true;
+			btn.textContent = "이미지 생성 중…";
+			
+			// iOS 사파리에서 픽셀 선명도 위해 scale ↑
+			const canvas = await html2canvas(cardEl, {
+				backgroundColor: null,
+				scale: Math.max(2, window.devicePixelRatio || 2),
+				useCORS: true
+			});
+			
+			const dataUrl = canvas.toDataURL("image/png");
+			
+			const a = document.createElement("a");
+			a.href = dataUrl;
+			a.download = `enneagram-${key}.png`;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+		} catch (e) {
+			console.error(e);
+			alert("이미지 저장 중 오류가 발생했습니다.");
+		} finally {
+			btn.disabled = false;
+			btn.textContent = "이미지 저장(PNG)";
+		}
+	});
+}
+
+async function captureCardToPngFile(cardEl, filenameBase) {
+	if (typeof html2canvas !== "function") {
+		throw new Error("html2canvas_missing");
+	}
+	
+	const canvas = await html2canvas(cardEl, {
+		backgroundColor: null,
+		scale: Math.max(2, window.devicePixelRatio || 2),
+		useCORS: true
+	});
+	
+	const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+	if (!blob) throw new Error("toBlob_failed");
+	
+	const file = new File([blob], `${filenameBase}.png`, { type: "image/png" });
+	return { file, blob };
+}
+
+async function copyTextToClipboard(text) {
+	// HTTPS(깃허브 페이지 포함)에서만 동작하는 경우가 많음
+	if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+		await navigator.clipboard.writeText(text);
+		return true;
+	}
+	
+	// 레거시 폴백
+	const ta = document.createElement("textarea");
+	ta.value = text;
+	ta.setAttribute("readonly", "");
+	ta.style.position = "fixed";
+	ta.style.left = "-9999px";
+	document.body.appendChild(ta);
+	ta.select();
+	const ok = document.execCommand("copy");
+	ta.remove();
+	return ok;
+}
+
+function bindShareCardEvents(res) {
+	const btn = document.getElementById("btnShareCard");
+	const cardEl = document.getElementById("resultDownloadCard");
+	if (!btn || !cardEl) return;
+	
+	const key = `${res.main}w${res.wing}`;
+	const shareTitle = `에니어그램 결과 ${key}`;
+	const shareText = `나의 에니어그램 결과: ${key}`;
+	const shareUrl = window.location.href;
+	
+	btn.addEventListener("click", async () => {
+		try {
+			btn.disabled = true;
+			btn.textContent = "공유 준비 중…";
+			
+			// 1) 이미지 파일 공유가 가능한 환경이면(모바일에서 주로)
+			if (navigator.share && navigator.canShare) {
+				try {
+					const { file } = await captureCardToPngFile(cardEl, `enneagram-${key}`);
+					const dataWithFile = { title: shareTitle, text: shareText, files: [file] };
+					
+					if (navigator.canShare(dataWithFile)) {
+						await navigator.share(dataWithFile);
+						return;
+					}
+				} catch (e) {
+					// 이미지 캡처/파일공유 실패 시 URL 공유로 폴백
+					console.warn("file share fallback:", e);
+				}
+			}
+			
+			// 2) URL 공유(Web Share) 가능하면 URL로 공유
+			if (navigator.share) {
+				await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+				return;
+			}
+			
+			// 3) 그 외: 링크 복사
+			const ok = await copyTextToClipboard(shareUrl);
+			alert(ok ? "링크를 복사했습니다." : "공유를 지원하지 않는 환경입니다. 주소를 직접 복사해 주세요.");
+		} catch (e) {
+			console.error(e);
+			alert("공유 중 오류가 발생했습니다.");
+		} finally {
+			btn.disabled = false;
+			btn.textContent = "공유하기";
+		}
+	});
+}
+
 render();
