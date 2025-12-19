@@ -2,6 +2,7 @@ import { QUESTIONS, LIKERT_LABELS } from "./questions.js";
 import { TYPE_INFO } from "./interpretations.js";
 import { calcScores } from "./scoring.js";
 import { ENNEAGRAM_CARDS } from "./resultCard.js";
+import { encodePercentsToPb, decodePbToPercents } from "./shareCodec.js";
 
 const $stage = document.getElementById("stage");
 const $progressBar = document.getElementById("progressBar");
@@ -9,6 +10,9 @@ const $btnStartOver = document.getElementById("btnStartOver");
 
 const answers = {}; // qid -> likert(1~5) or single(type)
 let step = -1; // -1: start, 0..QUESTIONS.length-1: questions, QUESTIONS.length: result
+
+// URL 결과 딥링크로 들어온 경우 강제로 사용할 결과
+let forcedRes = null;
 
 // ---------------- utils ----------------
 function escapeHtml(str) {
@@ -65,6 +69,131 @@ function hideError() {
 	err.classList.remove("is-show");
 }
 
+// ---------------- URL result deep link ----------------
+function getResultKeyFromUrl() {
+	const sp = new URLSearchParams(window.location.search);
+	const raw = (sp.get("r") || "").trim().toLowerCase(); // e.g. "1w9"
+	if (!/^[1-9]w[1-9]$/.test(raw)) return null;
+	
+	const main = parseInt(raw[0], 10);
+	const wing = parseInt(raw[2], 10);
+	
+	// wing validation: adjacent only (1:9/2, 9:8/1, else ±1)
+	const ok =
+		(main === 1 && (wing === 9 || wing === 2)) ||
+		(main === 9 && (wing === 8 || wing === 1)) ||
+		(main >= 2 && main <= 8 && (wing === main - 1 || wing === main + 1));
+	
+	return ok ? `${main}w${wing}` : null;
+}
+
+/**
+ * URL 점수 파라미터 파싱(base64 암호화 적용)
+ */
+function parsePercentParamFromUrl() {
+	const sp = new URLSearchParams(window.location.search);
+	const pb = (sp.get("pb") || "").trim();
+	if (!pb) return null;
+	return decodePbToPercents(pb); // length 9 or null
+}
+
+function makeResFromKeyOnly(key) {
+	const main = parseInt(key[0], 10);
+	const wing = parseInt(key[2], 10);
+	
+	// 점수 없는 결과: bars/top3 숨김 용도
+	return {
+		ok: true,
+		main,
+		wing,
+		hasScores: false,
+		percent: null,
+		sorted: null
+	};
+}
+
+function makeResFromKeyAndPercent(key, percentList) {
+	const main = parseInt(key[0], 10);
+	const wing = parseInt(key[2], 10);
+	
+	// percentList: length 9, index 0->type1 ... index8->type9
+	const percent = {};
+	for (let t = 1; t <= 9; t++) {
+		percent[t] = percentList[t - 1];
+	}
+	
+	const sorted = Array.from({ length: 9 }, (_, i) => {
+		const type = i + 1;
+		return { type, pct: percent[type] };
+	}).sort((a, b) => b.pct - a.pct || a.type - b.type);
+	
+	return {
+		ok: true,
+		main,
+		wing,
+		hasScores: true,
+		percent,
+		sorted
+	};
+}
+
+/**
+ * index.html 제거한 "공유용 base URL" 만들기
+ * - /index.html -> /
+ * - 그 외는 pathname 유지
+ */
+function normalizeSharePath(urlObj) {
+	const INDEX = "/index.html";
+	if (urlObj.pathname.endsWith(INDEX)) {
+		urlObj.pathname = urlObj.pathname.slice(0, -("index.html".length));
+		// 끝이 ""이면 "/"로 보정
+		if (urlObj.pathname === "") urlObj.pathname = "/";
+	}
+}
+
+/**
+ * 공유/딥링크용 URL 구성
+ * - r 필수
+ * - hasScores=true면 p=9개 점수 포함
+ */
+function buildResultUrl(res) {
+	const url = new URL(window.location.href);
+	normalizeSharePath(url);
+	
+	url.searchParams.set("r", `${res.main}w${res.wing}`);
+	
+	if (res.hasScores === true && res.percent) {
+		const percentList9 = Array.from({ length: 9 }, (_, i) => {
+			const t = i + 1;
+			return res.percent[t];
+		});
+		
+		const pb = encodePercentsToPb(percentList9);
+		if (pb) url.searchParams.set("pb", pb);
+		else url.searchParams.delete("pb");
+	} else {
+		url.searchParams.delete("pb");
+	}
+	
+	return url.toString();
+}
+
+function bootByUrlResultIfAny() {
+	const key = getResultKeyFromUrl();
+	if (!key) return false;
+	
+	const pList = parsePercentParamFromUrl();
+	
+	if (pList) {
+		forcedRes = makeResFromKeyAndPercent(key, pList);
+	} else {
+		forcedRes = makeResFromKeyOnly(key);
+	}
+	
+	step = QUESTIONS.length; // 결과 페이지로 바로 이동
+	return true;
+}
+
 // ---------------- render ----------------
 function render() {
 	// start
@@ -98,14 +227,14 @@ function render() {
             <div class="kicker">${currentIndex} / ${total}</div>
             <h2 class="title">Q${q.id}. ${escapeHtml(q.text)}</h2>
           </div>
-    
+
           <div class="card__body">
             <p class="hint">선택한 뒤 “다음”을 눌러 진행합니다.</p>
-    
+
             ${q.kind === "likert" ? renderLikertBlock(q, selected) : renderSingleBlock(q, selected)}
-    
+
             <div class="error" id="err"></div>
-    
+
             <div class="actions">
               <button class="btn btn--ghost" id="btnPrev" type="button" ${step === 0 ? "disabled" : ""}>이전</button>
               <button class="btn btn--primary" id="btnNext" type="button">다음</button>
@@ -221,7 +350,7 @@ function renderSingleBlock(q, selected) {
   `;
 }
 
-function bindQuestionEvents(q) {
+function bindQuestionEvents() {
 	const block = document.getElementById("block");
 	if (!block) return;
 	
@@ -306,78 +435,105 @@ function bindNavEvents(q) {
 
 // ---------------- result page ----------------
 function renderResultPage() {
-	const res = calcScores(QUESTIONS, answers);
+	// ✅ URL 딥링크로 들어온 경우 forcedRes를 우선 사용
+	const baseRes = forcedRes || calcScores(QUESTIONS, answers);
 	
-	if (!res.ok) {
+	if (!baseRes || !baseRes.ok) {
 		// 안전장치
 		step = 0;
+		forcedRes = null;
 		render();
 		return;
 	}
 	
-	const top3 = res.sorted
-		.slice(0, 3)
-		.map((x) => `${x.type}유형 ${x.pct}%`)
-		.join(" · ");
+	// calcScores 결과에는 hasScores가 없을 수 있으니 기본 true로 취급
+	const res = {
+		...baseRes,
+		hasScores: (baseRes.hasScores !== false)
+	};
 	
 	const info = TYPE_INFO[res.main];
 	const wingInfo = TYPE_INFO[res.wing];
 	
-	// ✅ 새 CSS(.bar__track/.bar__fill)에 맞춘 막대
-	const barsHtml = Array.from({ length: 9 }, (_, i) => {
-		const t = i + 1;
-		const pct = res.percent[t];
-		return `
-      <div class="bar">
-        <div class="bar__top">
-          <span>${t}유형</span>
-          <span>${pct}%</span>
-        </div>
-        <div class="bar__track">
-          <div class="bar__fill" style="width:${pct}%"></div>
-        </div>
+	// ✅ 점수/Top3/막대는 "실제 점수 있을 때만" 표시
+	let top3Html = "";
+	let scoreBlockHtml = "";
+	
+	if (res.hasScores === true && res.percent && res.sorted) {
+		const top3 = res.sorted
+			.slice(0, 3)
+			.map((x) => `${x.type}유형 ${x.pct}%`)
+			.join(" · ");
+		
+		top3Html = `
+      <div class="badgeRow">
+        <span class="badge badge--accent">Top3: ${escapeHtml(top3)}</span>
+        <span class="badge">요약: ${escapeHtml(info.name)}</span>
       </div>
     `;
-	}).join("");
+		
+		const barsHtml = Array.from({ length: 9 }, (_, i) => {
+			const t = i + 1;
+			const pct = res.percent[t];
+			return `
+        <div class="bar">
+          <div class="bar__top">
+            <span>${t}유형</span>
+            <span>${pct}%</span>
+          </div>
+          <div class="bar__track">
+            <div class="bar__fill" style="width:${pct}%"></div>
+          </div>
+        </div>
+      `;
+		}).join("");
+		
+		scoreBlockHtml = `
+      <p class="hint">
+        아래 점수는 “유형 가능성”을 보여줍니다. 상황(스트레스/회복/역할)에 따라 달라질 수 있습니다.
+      </p>
+      <div class="bars">${barsHtml}</div>
+    `;
+	} else {
+		// 점수 없는 딥링크는 가짜 표시 제거 + 요약 배지 단독 노출
+		top3Html = `
+      <div class="badgeRow">
+        <span class="badge">요약: ${escapeHtml(info.name)}</span>
+      </div>
+    `;
+	}
+	
 	const downloadCardHtml = renderDownloadCardSection(res);
 	
 	const html = `
     <div class="backScreen">
         ${downloadCardHtml}
-        
+
         <div class="card fadeIn">
           <div class="card__header">
             <div class="kicker">결과</div>
             <h2 class="title">당신은 ${res.main}번 유형 · ${res.wing}번 날개(${res.main}w${res.wing})</h2>
-    
-            <div class="badgeRow">
-              <span class="badge badge--accent">Top3: ${escapeHtml(top3)}</span>
-              <span class="badge">요약: ${escapeHtml(info.name)}</span>
-            </div>
+            ${top3Html}
           </div>
-    
+
           <div class="card__body">
-            <p class="hint">
-              아래 점수는 “유형 가능성”을 보여줍니다. 상황(스트레스/회복/역할)에 따라 달라질 수 있습니다.
-            </p>
-    
-            <div class="bars">${barsHtml}</div>
-    
+            ${scoreBlockHtml}
+
             <div class="typebox">
               <h3>${res.main}유형: ${escapeHtml(info.name)} <span style="color:var(--muted);font-weight:800;">(날개: ${res.main}w${res.wing} — ${escapeHtml(wingInfo.name)})</span></h3>
-    
+
               <div class="hr"></div>
               <b>강점(공동체에 주는 유익)</b>
               <ul>${info.strengths.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
-    
+
               <div class="hr"></div>
               <b>주의(흔한 함정)</b>
               <ul>${info.blindspots.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
-    
+
               <div class="hr"></div>
               <b>성장 포인트(실천 제안)</b>
               <ul>${info.growth.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>
-    
+
               <div class="hr"></div>
               <b>날개 설명</b>
               <div class="hint" style="margin:8px 0 0;">
@@ -385,7 +541,7 @@ function renderResultPage() {
                 말투/결정 속도/관계 방식에서 ${res.wing}유형의 특징이 더 도드라질 때가 있습니다.
               </div>
             </div>
-    
+
             <div class="actions">
               <button class="btn btn--ghost" id="btnBackToLast" type="button">마지막 문항으로</button>
               <button class="btn btn--primary" id="btnRestart" type="button">다시 하기</button>
@@ -400,12 +556,13 @@ function renderResultPage() {
 	document.getElementById("btnRestart")?.addEventListener("click", resetAll);
 	document.getElementById("btnBackToLast")?.addEventListener("click", () => {
 		step = QUESTIONS.length - 1;
+		forcedRes = null;
 		render();
 		scrollTopSmooth();
 	});
 	
-	bindDownloadCardEvents(res); // 카드 다운
-	bindShareCardEvents(res); // 카드 공유하기
+	bindDownloadCardEvents(res);
+	bindShareCardEvents(res);
 	
 	// 결과 페이지에서는 키보드 핸들러 제거
 	window.onkeydown = null;
@@ -415,6 +572,17 @@ function renderResultPage() {
 function resetAll() {
 	for (const k of Object.keys(answers)) delete answers[k];
 	step = -1;
+	forcedRes = null;
+	
+	// URL에 r/p 파라미터 남아 있으면 초기화가 결과로 다시 갈 수 있으니 제거
+	try {
+		const url = new URL(window.location.href);
+		normalizeSharePath(url);
+		url.searchParams.delete("r");
+		url.searchParams.delete("pb");
+		window.history.replaceState({}, "", url.toString());
+	} catch (_) {}
+	
 	render();
 	scrollTopSmooth();
 }
@@ -432,15 +600,14 @@ syncAppHeight();
 window.addEventListener("resize", syncAppHeight);
 window.visualViewport?.addEventListener("resize", syncAppHeight);
 window.visualViewport?.addEventListener("scroll", syncAppHeight);
+
 /**
  * 최상단 "이미지 다운로드용 카드" 섹션 HTML
- * - res: { main: number|string, wing: number|string, ... }
  */
 function renderDownloadCardSection(res) {
 	const key = `${res.main}w${res.wing}`;
 	const card = ENNEAGRAM_CARDS[key];
 	
-	// 데이터 누락 시에도 UI가 깨지지 않게 fallback
 	const title = card?.title ?? "결과 카드";
 	const summary = card?.summary ?? "";
 	const description = card?.description ?? "";
@@ -449,10 +616,8 @@ function renderDownloadCardSection(res) {
 	
 	return `
     <section class="dlCardSection">
-      <div class="dlCardSection__head">
-      </div>
+      <div class="dlCardSection__head"></div>
 
-      <!-- 캡처 대상 -->
       <div class="dlCardWrap">
         <div class="dlCard" id="resultDownloadCard" data-type="${key}">
           <div class="dlCard__top">
@@ -492,10 +657,9 @@ function renderDownloadCardSection(res) {
 
 /**
  * 다운로드 버튼 이벤트 바인딩
- * - html2canvas가 있으면 PNG 저장
- * - 없으면 안내
+ * - 오버레이 미리보기로 띄우고, 길게 눌러 저장 유도 (iOS 인앱 안정)
  */
-function bindDownloadCardEvents(res) {
+function bindDownloadCardEvents() {
 	const btn = document.getElementById("btnDownloadCardPng");
 	const cardEl = document.getElementById("resultDownloadCard");
 	if (!btn || !cardEl) return;
@@ -508,11 +672,10 @@ function bindDownloadCardEvents(res) {
 			const blob = await captureCardToBlob(cardEl);
 			showImagePreviewFromBlob(blob);
 			
-			// 안내(인앱에서는 이 방식이 가장 안정적)
-			alert("새 탭에서 이미지가 열리면, 이미지를 길게 눌러 ‘사진에 저장’을 선택하세요.");
+			alert("이미지 위를 길게 눌러 ‘사진에 저장’ 또는 ‘공유’를 선택하세요.");
 		} catch (e) {
 			console.error(e);
-			alert("이미지 생성/열기에 실패했습니다. (외부 이미지/폰트가 있으면 CORS 문제일 수 있습니다)");
+			alert("이미지 생성에 실패했습니다. (외부 이미지/폰트가 있으면 CORS 문제일 수 있습니다)");
 		} finally {
 			btn.disabled = false;
 			btn.textContent = "이미지 저장(PNG)";
@@ -525,16 +688,15 @@ async function captureCardToBlob(cardEl) {
 		throw new Error("html2canvas_missing");
 	}
 	
-	// iOS에서 폰트가 늦게 적용되는 문제 방지
 	if (document.fonts && document.fonts.ready) {
 		try { await document.fonts.ready; } catch (_) {}
 	}
 	
 	const canvas = await html2canvas(cardEl, {
-		backgroundColor: "#ffffff",          // null 투명은 iOS에서 꼬이는 경우가 있어 흰색 권장
+		backgroundColor: "#ffffff",
 		scale: Math.max(2, window.devicePixelRatio || 2),
-		useCORS: true,                        // 외부 리소스가 있으면 필요
-		allowTaint: false                     // taint 허용하면 저장 시 깨질 수 있어 false 유지
+		useCORS: true,
+		allowTaint: false
 	});
 	
 	const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
@@ -549,13 +711,16 @@ function bindShareCardEvents(res) {
 	
 	const key = `${res.main}w${res.wing}`;
 	const shareTitle = `에니어그램 결과 ${key}`;
+	
 	const shareText = [
 		"나의 에니어그램 결과",
 		`${key}`,
 		"",
 		"교회 에니어그램 테스트"
 	].join("\n");
-	const shareUrl = window.location.href;
+	
+	// ✅ 결과 + (가능하면) 점수까지 포함한 URL 공유
+	const shareUrl = buildResultUrl(res);
 	
 	btn.addEventListener("click", async () => {
 		try {
@@ -564,7 +729,7 @@ function bindShareCardEvents(res) {
 			
 			const blob = await captureCardToBlob(cardEl);
 			
-			// 1) 가능하면 파일 공유
+			// 1) 가능하면 파일 공유 (이미지)
 			if (navigator.share) {
 				try {
 					const file = new File([blob], `enneagram-${key}.png`, { type: "image/png" });
@@ -573,7 +738,13 @@ function bindShareCardEvents(res) {
 						: true;
 					
 					if (canFileShare) {
-						await navigator.share({ title: shareTitle, text: shareText, files: [file] });
+						// iOS에서는 files 공유 시 url이 무시될 수 있어(앱마다 다름)
+						// -> URL 공유도 중요하니 text에 shareUrl을 같이 넣어줌
+						await navigator.share({
+							title: shareTitle,
+							text: `${shareText}\n\n${shareUrl}`,
+							files: [file]
+						});
 						return;
 					}
 				} catch (e) {
@@ -591,6 +762,7 @@ function bindShareCardEvents(res) {
 			
 			// 3) 마지막: 오버레이로 띄워서 길게 눌러 공유/저장 유도
 			showImagePreviewFromBlob(blob);
+			alert(`공유가 제한되어 이미지 미리보기를 열었습니다.\n\n링크:\n${shareUrl}`);
 		} catch (e) {
 			console.error(e);
 			alert("공유에 실패했습니다. (인앱 브라우저 제한 또는 CORS 문제 가능)");
@@ -626,7 +798,7 @@ function ensureImagePreviewOverlay() {
 
       <div style="margin-top:10px;">
         <img id="imgPreviewEl" alt="result card"
-          style="width:100%; height:auto; display:block; border-radius:14px; border:1px solid rgba(15,23,42,.10);" />
+          style="width:100%; height:auto; display:block; border-radius:14px; border:1px solid rgba(15,23,42,.10);"  src=""/>
       </div>
 
       <div style="margin-top:10px; font-size:12px; color:#475569; line-height:1.4;">
@@ -655,9 +827,9 @@ function showImagePreviewFromBlob(blob) {
 	img.src = url;
 	overlay.style.display = "flex";
 	
-	// 너무 빨리 revoke하면 iOS에서 이미지가 안 뜰 수 있어 넉넉히 지연
 	setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-
+// ---------------- start ----------------
+bootByUrlResultIfAny();
 render();
