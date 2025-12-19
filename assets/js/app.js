@@ -602,8 +602,8 @@ function bindShareCardEvents(res) {
 	const key = `${res.main}w${res.wing}`;
 	const shareTitle = `에니어그램 결과 ${key}`;
 	const shareText =
-		`나의 에니어그램 결과: ${key}
-		에니어그램 검사 해보기 : https://clou-dd.github.io/EnneaChurch/`;
+`나의 에니어그램 결과: ${key}
+에니어그램 검사 해보기 : https://clou-dd.github.io/EnneaChurch/`;
 	const shareUrl = window.location.href;
 	
 	btn.addEventListener("click", async () => {
