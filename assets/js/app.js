@@ -713,13 +713,14 @@ function bindShareCardEvents(res) {
 		const shareTitle = `에니어그램 결과 ${key}`;
 		const shareUrl = buildResultUrl(res);
 
-		const shareText = `
-		⭐⭐ 나의 에니어그램 결과 ⭐⭐
-		[${key}]
-		
-		✔️ 결과 자세히 보기
-		${shareUrl}
-		`.trim();
+
+		const shareText = [
+			"⭐⭐ 나의 에니어그램 결과 ⭐⭐",
+			`[${key}]`,
+			"",
+			"✔️ 결과 자세히 보기",
+			shareUrl
+		].join("\n");
 
 		// ✅ 1순위: 공유 시트 띄우기 (await 이전에 실행되도록 즉시 호출)
 		if (navigator.share) {
