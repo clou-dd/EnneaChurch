@@ -3,17 +3,17 @@
 
 // 정규화용 최대점수(고정 기준)
 // Likert은 (응답-1)로 0~4점
-// Q28는 절반씩(0~2씩), Q29/Q30는 선택된 타입에 +4
+// Q28는 절반씩(0~2씩), Q29/Q30는 선택된 타입에 +2  ✅ 변경
 export const MAX_SCORE = {
-	1: (4 * 3) + 2 + 4, // 1유형 Likert 3문항 + half(Q28) + Q30(선택 가능)
-	2: (4 * 3) + 4,     // 2유형 Likert 3문항 + Q29
-	3: (4 * 3) + 4,     // 3유형 Likert 3문항 + Q29
-	4: (4 * 3) + 4,     // 4유형 Likert 3문항 + Q30
-	5: (4 * 3) + 4,     // 5유형 Likert 3문항 + Q30
-	6: (4 * 3) + 2 + 4, // 6유형 Likert 3문항 + half(Q28) + Q30
-	7: (4 * 3) + 4,     // 7유형 Likert 3문항 + Q29
-	8: (4 * 3) + 4,     // 8유형 Likert 3문항 + Q29
-	9: (4 * 3) + 4      // 9유형 Likert 3문항 + Q29
+	1: (4 * 3) + 2 + 2, // 1유형 Likert 3문항 + half(Q28) + Q30(선택 가능)
+	2: (4 * 3) + 2,     // 2유형 Likert 3문항 + Q29
+	3: (4 * 3) + 2,     // 3유형 Likert 3문항 + Q29
+	4: (4 * 3) + 2,     // 4유형 Likert 3문항 + Q30
+	5: (4 * 3) + 2,     // 5유형 Likert 3문항 + Q30
+	6: (4 * 3) + 2 + 2, // 6유형 Likert 3문항 + half(Q28) + Q30
+	7: (4 * 3) + 2,     // 7유형 Likert 3문항 + Q29
+	8: (4 * 3) + 2,     // 8유형 Likert 3문항 + Q29
+	9: (4 * 3) + 2      // 9유형 Likert 3문항 + Q29
 };
 
 export function getWing(mainType, percents) {
@@ -40,6 +40,15 @@ function isValidType(t) {
 	return Number.isInteger(t) && t >= 1 && t <= 9;
 }
 
+// ✅ Likert 입력 방어(1~5 범위 밖 값/NaN 대비)
+function clampLikertToPts(v) {
+	const n = Number(v);
+	if (!Number.isFinite(n)) return 0;
+	// 기대 범위: 1~5 → pts 0~4
+	const clamped = Math.max(1, Math.min(5, n));
+	return clamped - 1;
+}
+
 export function calcScores(questions, answers) {
 	const missing = [];
 	for (const q of questions) {
@@ -51,8 +60,9 @@ export function calcScores(questions, answers) {
 
 	for (const q of questions) {
 		if (q.kind === "likert") {
-			const v = Number(answers[q.id]); // 1~5
-			const pts = v - 1;               // 0~4
+			// const v = Number(answers[q.id]); // 1~5
+			// const pts = v - 1;               // 0~4
+			const pts = clampLikertToPts(answers[q.id]); // ✅ 0~4로 안전 처리
 
 			// ✅ 일반 likert: q.type에 귀속
 			if (isValidType(q.type)) {
@@ -71,10 +81,10 @@ export function calcScores(questions, answers) {
 		} else if (q.kind === "single") {
 			const pickedType = Number(answers[q.id]);
 
-			// ✅ options 기반 검증 후 +4
+			// ✅ options 기반 검증 후 +2  (기존 +4에서 변경)
 			if (Array.isArray(q.options) && q.options.length) {
 				const allowed = q.options.some(o => Number(o.type) === pickedType);
-				if (allowed && isValidType(pickedType)) raw[pickedType] += 4;
+				if (allowed && isValidType(pickedType)) raw[pickedType] += 2;
 			}
 		}
 	}
