@@ -708,54 +708,63 @@ function bindShareCardEvents(res) {
 	const btn = document.getElementById("btnShareCard");
 	if (!btn) return;
 
-	const key = `${res.main}w${res.wing}`;
+	btn.addEventListener("click", () => {
+		const key = `${res.main}w${res.wing}`;
+		const shareTitle = `에니어그램 결과 ${key}`;
+		const shareUrl = buildResultUrl(res);
 
-	const shareUrl = buildResultUrl(res);
-	const shareTitle = `에니어그램 결과 ${key}`;
-	const shareText = [
-`⭐⭐나의 에니어그램 결과⭐⭐
-[${key}]
+		const shareText = `
+		⭐⭐ 나의 에니어그램 결과 ⭐⭐
+		[${key}]
+		
+		✔️ 결과 자세히 보기
+		${shareUrl}
+		`.trim();
 
-✔️ 결과 자세히 보기
-${shareUrl}`
-	].filter(Boolean).join("\n");
-
-	btn.addEventListener("click", async () => {
-		try {
+		// ✅ 1순위: 공유 시트 띄우기 (await 이전에 실행되도록 즉시 호출)
+		if (navigator.share) {
 			btn.disabled = true;
 			btn.textContent = "공유 중…";
 
-			// 1) Web Share가 되면 텍스트만 공유 (카톡 포함 대부분 OK)
-			if (navigator.share) {
-				await navigator.share({
-					title: shareTitle,
-					text: shareText
-					// url을 따로 넣어도 되지만, 일부 앱은 url을 무시하는 경우가 있어
-					// text 안에 shareUrl을 넣는 게 가장 확실함
-				});
-				return;
-			}
+			navigator.share({
+				title: shareTitle,
+				text: shareText
+				// url을 별도로 넣어도 되지만,
+				// 앱별로 무시될 수 있어서 text 안에 URL 포함이 가장 확실함
+				// url: shareUrl
+			}).catch(async (e) => {
+				// 사용자가 공유 시트를 닫은 경우는 폴백 불필요
+				if (e?.name === "AbortError") return;
 
-			// 2) Web Share가 없으면 링크/텍스트 복사
-			const ok = await copyTextToClipboard(shareText);
-			alert(ok ? "공유용 텍스트를 복사했습니다. 카톡에 붙여넣기 하세요." : "공유를 지원하지 않는 환경입니다. 직접 복사해 주세요.");
-		} catch (e) {
-			// 사용자가 공유 시트를 닫은 경우 AbortError가 흔함
-			if (e?.name === "AbortError") return;
+				console.warn("share failed:", e?.name, e?.message, e);
 
-			console.error(e);
+				// ✅ 2순위: 공유가 막히는 환경이면 복사로 폴백
+				try {
+					const ok = await copyTextToClipboard(shareText);
+					alert(ok ? "공유가 제한되어 텍스트를 복사했습니다. 붙여넣기 해서 공유하세요." : "공유에 실패했습니다.");
+				} catch (_) {
+					alert("공유에 실패했습니다.");
+				}
+			}).finally(() => {
+				btn.disabled = false;
+				btn.textContent = "공유하기";
+			});
 
-			// 3) 예외가 나도 마지막 폴백: 복사
-			try {
-				const ok = await copyTextToClipboard(shareText);
-				alert(ok ? "공유가 제한되어 텍스트를 복사했습니다. 카톡에 붙여넣기 하세요." : "공유에 실패했습니다.");
-			} catch (_) {
-				alert("공유에 실패했습니다.");
-			}
-		} finally {
-			btn.disabled = false;
-			btn.textContent = "공유하기";
+			return;
 		}
+
+		// ✅ navigator.share 자체가 없는 환경: 복사
+		(async () => {
+			try {
+				btn.disabled = true;
+				btn.textContent = "복사 중…";
+				const ok = await copyTextToClipboard(shareText);
+				alert(ok ? "공유용 텍스트를 복사했습니다. 붙여넣기 해서 공유하세요." : "공유를 지원하지 않는 환경입니다.");
+			} finally {
+				btn.disabled = false;
+				btn.textContent = "공유하기";
+			}
+		})();
 	});
 }
 
@@ -822,7 +831,6 @@ async function copyTextToClipboard(text) {
 		return true;
 	}
 
-	// 레거시 폴백
 	const ta = document.createElement("textarea");
 	ta.value = text;
 	ta.setAttribute("readonly", "");
