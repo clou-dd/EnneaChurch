@@ -393,8 +393,8 @@ input:focus, textarea:focus, select:focus{
 /* 선 위치 = dotRowH의 정확한 중앙 */
 .likertLine{
     position: absolute;
-    left: 12px;
-    right: 12px;
+    left: calc(6px + ((100% - 12px) / 10));
+    right: calc(6px + ((100% - 12px) / 10));
 
     top: calc((var(--dotRowH) / 2) + 14px); /* 14px = .likert padding-top */
     transform: translateY(calc(var(--lineH) / -2));
