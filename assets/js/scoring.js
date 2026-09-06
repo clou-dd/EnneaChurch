@@ -99,9 +99,12 @@ export function calcScores(questions, answers) {
 		.sort((a, b) => b.pct - a.pct);
 
 	const main = sorted[0].type;
+	const topTypes = sorted
+		.filter((item) => item.pct === sorted[0].pct)
+		.map((item) => item.type);
 
 	// ✅ 날개는 무조건 양옆(인접)에서만 선택
 	const wing = getWing(main, percent);
 
-	return { ok: true, raw, percent, sorted, main, wing };
+	return { ok: true, raw, percent, sorted, main, topTypes, wing };
 }

@@ -1,6 +1,6 @@
 import { QUESTIONS, LIKERT_LABELS } from "./questions.js";
 import { TYPE_INFO } from "./interpretations.js";
-import { calcScores } from "./scoring.js";
+import { calcScores, getWing } from "./scoring.js";
 import { ENNEAGRAM_CARDS } from "./resultCard.js";
 import { encodePercentsToPb, decodePbToPercents } from "./shareCodec.js";
 
@@ -13,6 +13,7 @@ let step = -1; // -1: start, 0..QUESTIONS.length-1: questions, QUESTIONS.length:
 
 // URL 결과 딥링크로 들어온 경우 강제로 사용할 결과
 let forcedRes = null;
+let selectedMainType = null;
 
 // ---------------- utils ----------------
 function escapeHtml(str) {
@@ -106,6 +107,7 @@ function makeResFromKeyOnly(key) {
 		ok: true,
 		main,
 		wing,
+		topTypes: [main],
 		hasScores: false,
 		percent: null,
 		sorted: null
@@ -126,11 +128,15 @@ function makeResFromKeyAndPercent(key, percentList) {
 		const type = i + 1;
 		return { type, pct: percent[type] };
 	}).sort((a, b) => b.pct - a.pct || a.type - b.type);
+	const topTypes = sorted
+		.filter((item) => item.pct === sorted[0].pct)
+		.map((item) => item.type);
 	
 	return {
 		ok: true,
 		main,
 		wing,
+		topTypes,
 		hasScores: true,
 		percent,
 		sorted
@@ -394,7 +400,10 @@ function goNext(q) {
 		return;
 	}
 	
-	if (step === QUESTIONS.length - 1) step = QUESTIONS.length;
+	if (step === QUESTIONS.length - 1) {
+		selectedMainType = null;
+		step = QUESTIONS.length;
+	}
 	else step += 1;
 	
 	render();
@@ -447,9 +456,27 @@ function renderResultPage() {
 	}
 	
 	// calcScores 결과에는 hasScores가 없을 수 있으니 기본 true로 취급
+	const hasScores = baseRes.hasScores !== false;
+	const topTypes = hasScores && baseRes.percent && baseRes.sorted
+		? (baseRes.topTypes?.length
+			? baseRes.topTypes
+			: baseRes.sorted
+				.filter((item) => item.pct === baseRes.sorted[0].pct)
+				.map((item) => item.type))
+		: [baseRes.main];
+	const main = selectedMainType != null && topTypes.includes(selectedMainType)
+		? selectedMainType
+		: baseRes.main;
+	const wing = main === baseRes.main
+		? baseRes.wing
+		: getWing(main, baseRes.percent);
+
 	const res = {
 		...baseRes,
-		hasScores: (baseRes.hasScores !== false)
+		main,
+		wing,
+		topTypes,
+		hasScores
 	};
 	
 	const info = TYPE_INFO[res.main];
@@ -504,9 +531,11 @@ function renderResultPage() {
 	}
 	
 	const downloadCardHtml = renderDownloadCardSection(res);
+	const tiedTypeChooserHtml = renderTiedTypeChooser(res);
 	
 	const html = `
     <div class="backScreen">
+        ${tiedTypeChooserHtml}
         ${downloadCardHtml}
 
         <div class="card fadeIn">
@@ -557,15 +586,68 @@ function renderResultPage() {
 	document.getElementById("btnBackToLast")?.addEventListener("click", () => {
 		step = QUESTIONS.length - 1;
 		forcedRes = null;
+		selectedMainType = null;
 		render();
 		scrollTopSmooth();
 	});
 	
 	bindDownloadCardEvents(res);
 	bindShareCardEvents(res);
+	bindTiedTypeChooserEvents(res);
 	
 	// 결과 페이지에서는 키보드 핸들러 제거
 	window.onkeydown = null;
+}
+
+function renderTiedTypeChooser(res) {
+	if (res.hasScores !== true || !res.percent || res.topTypes.length < 2) return "";
+
+	const buttons = res.topTypes.map((type) => {
+		const selected = type === res.main;
+		return `
+      <button
+        type="button"
+        class="tieTypeButton${selected ? " is-selected" : ""}"
+        data-main-type="${type}"
+        aria-pressed="${selected}"
+      >
+        <span class="tieTypeButton__number">${type}유형</span>
+        <span class="tieTypeButton__name">${escapeHtml(TYPE_INFO[type].name)}</span>
+        <span class="tieTypeButton__percent">${res.percent[type]}%</span>
+      </button>
+    `;
+	}).join("");
+
+	return `
+    <section class="tieTypeChooser fadeIn" aria-labelledby="tieTypeChooserTitle">
+      <div class="tieTypeChooser__eyebrow">공동 1위</div>
+      <h2 class="tieTypeChooser__title" id="tieTypeChooserTitle">확인할 유형을 선택해 보세요</h2>
+      <p class="tieTypeChooser__description">
+        최고 점수가 같은 유형이 ${res.topTypes.length}개입니다. 유형을 누르면 아래 결과가 함께 바뀝니다.
+      </p>
+      <div class="tieTypeChooser__options">${buttons}</div>
+    </section>
+  `;
+}
+
+function bindTiedTypeChooserEvents(res) {
+	const buttons = document.querySelectorAll("[data-main-type]");
+	buttons.forEach((button) => {
+		button.addEventListener("click", () => {
+			const nextType = Number(button.dataset.mainType);
+			if (!res.topTypes.includes(nextType) || nextType === res.main) return;
+
+			const previousScrollTop = document.querySelector(".backScreen")?.scrollTop ?? 0;
+			selectedMainType = nextType;
+			renderResultPage();
+
+			requestAnimationFrame(() => {
+				const scroller = document.querySelector(".backScreen");
+				if (scroller) scroller.scrollTop = previousScrollTop;
+				document.querySelector(`[data-main-type="${nextType}"]`)?.focus({ preventScroll: true });
+			});
+		});
+	});
 }
 
 // ---------------- actions ----------------
@@ -573,6 +655,7 @@ function resetAll() {
 	for (const k of Object.keys(answers)) delete answers[k];
 	step = -1;
 	forcedRes = null;
+	selectedMainType = null;
 	
 	// URL에 r/p 파라미터 남아 있으면 초기화가 결과로 다시 갈 수 있으니 제거
 	try {
