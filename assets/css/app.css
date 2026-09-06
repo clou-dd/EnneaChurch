@@ -99,6 +99,7 @@ button{ font: inherit; }
 /* start page: 카드 자체를 화면 중앙으로 */
 .backScreen{
     height: 100%;
+    padding: 0 var(--page-pad, 16px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
 }
@@ -866,7 +867,7 @@ input:focus, textarea:focus, select:focus{
     overflow: hidden;
     padding:
             calc(var(--topbar-h, 56px) + 8px)
-            var(--page-pad, 16px)
+            0
             calc(var(--bottombar-h, 72px) + 8px);
 }
 
@@ -895,8 +896,8 @@ input:focus, textarea:focus, select:focus{
 /* appShell의 본문 영역(=stage 역할) */
 .appShell .stage,
 .appShell #stage{
-    max-width: var(--container-max, 900px);
-    margin: 0 auto;
+    max-width: none;
+    margin: 0;
 }
 
 @supports (padding: env(safe-area-inset-bottom)){
